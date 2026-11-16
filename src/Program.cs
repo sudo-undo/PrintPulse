@@ -14,7 +14,6 @@ namespace PrintPulse
         {
             try
             {
-                // Attempt DPI awareness if on Vista or newer
                 if (Environment.OSVersion.Version.Major >= 6)
                 {
                     SetProcessDPIAware();
@@ -30,7 +29,19 @@ namespace PrintPulse
                 MessageBox.Show("An unexpected error occurred:\n" + e.Exception.Message, "PrintPulse", MessageBoxButtons.OK, MessageBoxIcon.Error);
             };
 
-            Application.Run(new MainForm());
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+            {
+                MessageBox.Show("Fatal unhandled domain error:\n" + e.ExceptionObject, "PrintPulse Fatal", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            };
+
+            try
+            {
+                Application.Run(new MainForm());
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Fatal startup error:\n" + ex.ToString(), "PrintPulse Startup Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 }

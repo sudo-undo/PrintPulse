@@ -73,7 +73,17 @@ This document preserves the complete chronological record of user requests, assi
 
 ---
 
-## Session 6: GitHub Account Discovery & Remote Push
+## Session 7: Startup Bug Resolution & Verified Launch
+* **Issue Reported:**
+  * Application was exiting immediately without displaying the main window.
+* **Root Cause Diagnostics:**
+  * When `SplitContainer` was initialized in `MainForm.cs`, setting `Panel1MinSize` and `Panel2MinSize` during object instantiation exceeded the container's unparented default width, throwing a silent `InvalidOperationException: SplitterDistance must be between Panel1MinSize and Width - Panel2MinSize`.
+* **Fix & Verification:**
+  * Removed premature minimum size constraints during SplitContainer instantiation.
+  * Deferred proportional splitter sizing to `this.Shown` event inside a guarded try/catch block.
+  * Added top-level unhandled exception handlers in `Program.cs` to ensure any runtime errors surface visibly to the user.
+  * Verified successful instantiation via automated test harness: `MainForm created with no exceptions! Form size: {Width=1100, Height=720}`.
+  * Updated portable release executable and pushed fix to GitHub repository `sudo-undo/PrintPulse`.
 * **User Request:**
   * Inquired what their GitHub account username is.
 * **Actions & Decisions:**

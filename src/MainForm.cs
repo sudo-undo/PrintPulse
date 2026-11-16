@@ -260,9 +260,7 @@ namespace PrintPulse
             {
                 Dock = DockStyle.Fill,
                 Orientation = Orientation.Vertical,
-                BackColor = Color.FromArgb(226, 232, 240),
-                Panel1MinSize = 280,
-                Panel2MinSize = 340
+                BackColor = Color.FromArgb(226, 232, 240)
             };
 
             // LEFT PANEL: QUEUE
@@ -462,8 +460,7 @@ namespace PrintPulse
             this.Controls.Add(topBar);
             this.Controls.Add(bottomBar);
 
-            // Proportional initial split (52% left, 48% right)
-            SetProportionalSplit();
+            this.Shown += (s, e) => SetProportionalSplit();
         }
 
         private void MainForm_Resize(object sender, EventArgs e)
@@ -473,17 +470,18 @@ namespace PrintPulse
 
         private void SetProportionalSplit()
         {
-            if (_split != null && this.ClientSize.Width > 500)
+            try
             {
-                int targetDistance = (int)(this.ClientSize.Width * 0.52);
-                int maxDistance = this.ClientSize.Width - _split.Panel2MinSize - 20;
-                int minDistance = _split.Panel1MinSize;
-
-                if (targetDistance >= minDistance && targetDistance <= maxDistance)
+                if (_split != null && _split.Width > 200)
                 {
-                    _split.SplitterDistance = targetDistance;
+                    int targetDistance = (int)(_split.Width * 0.52);
+                    if (targetDistance > 100 && targetDistance < _split.Width - 100)
+                    {
+                        _split.SplitterDistance = targetDistance;
+                    }
                 }
             }
+            catch { }
         }
 
         private Button CreateModernButton(string text, Color bg, Color fg, int x, int y, int w, int h = 32)
