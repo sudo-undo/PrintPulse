@@ -47,6 +47,7 @@
     <Compile Include="ReprintDialog.cs" />
     <Compile Include="ReportForm.cs" />
     <Compile Include="FeedbackForm.cs" />
+    <Compile Include="TelemetryService.cs" />
     <Compile Include="MainForm.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>

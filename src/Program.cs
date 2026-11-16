@@ -26,11 +26,13 @@ namespace PrintPulse
 
             Application.ThreadException += (s, e) =>
             {
+                TelemetryService.TrackError("ThreadException", e.Exception.Message, null, e.Exception.StackTrace);
                 MessageBox.Show("An unexpected error occurred:\n" + e.Exception.Message, "PrintPulse", MessageBoxButtons.OK, MessageBoxIcon.Error);
             };
 
             AppDomain.CurrentDomain.UnhandledException += (s, e) =>
             {
+                TelemetryService.TrackError("DomainCrash", e.ExceptionObject != null ? e.ExceptionObject.ToString() : "Unknown crash", null, null);
                 MessageBox.Show("Fatal unhandled domain error:\n" + e.ExceptionObject, "PrintPulse Fatal", MessageBoxButtons.OK, MessageBoxIcon.Error);
             };
 
@@ -40,6 +42,7 @@ namespace PrintPulse
             }
             catch (Exception ex)
             {
+                TelemetryService.TrackError("StartupCrash", ex.Message, null, ex.StackTrace);
                 MessageBox.Show("Fatal startup error:\n" + ex.ToString(), "PrintPulse Startup Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }

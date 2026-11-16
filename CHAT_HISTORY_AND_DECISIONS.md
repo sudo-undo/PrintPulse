@@ -73,7 +73,20 @@ This document preserves the complete chronological record of user requests, assi
 
 ---
 
-## Session 9: Standalone Installer Build & Distribution Packaging
+## Session 9: Direct In-App Feedback & Anonymous Sentry/Telemetry Integration
+* **User Request:**
+  * Adopt the industry standard for receiving error statistics (reliable, dependable, free).
+  * Replace the personal mailto method with direct in-app feedback submission.
+* **Architecture & Implementation:**
+  * **TelemetryService:** Created `src/TelemetryService.cs` handling:
+    1. Direct in-app feedback submission over HTTPS without requiring a local email client.
+    2. Automatic anonymous crash & hardware spooler error tracking (compatible with Sentry HTTPS ingestion API).
+    3. Legal PII sanitization: automatically scrubs Windows usernames and file paths (`C:\Users\[REDACTED]\...`).
+    4. Safe TLS handling: automatically negotiates TLS 1.2 on modern Windows with fallback to TLS 1.0 on legacy Windows XP/7.
+  * **Feedback Form Upgrade:** Upgraded `FeedbackForm.cs` with direct submission button (`🚀 Submit Feedback`), live sending indicator, and opt-in diagnostic toggle.
+  * **Error Hooking:** Integrated error tracking in `Program.cs` (crash events) and `BatchPrintController.cs` (printer hardware errors).
+  * **Build & Distribution:** Updated `PrintPulse.exe` (79 KB) and recompiled standalone installer `PrintPulse_Setup_v1.0.exe` (92 KB).
+  * **GitHub Synchronization:** Committed all changes and pushed to remote repository `sudo-undo/PrintPulse`.
 * **User Request:**
   * Where is the portable file located?
   * Where is the installable version located?

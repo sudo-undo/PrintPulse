@@ -39,7 +39,8 @@ All source code resides in `src/`:
 | `src/PrintReport.cs` | Model and business logic for the final print session. Aggregates sheets used, pages printed, color vs. B&W, computes cost/bill, and exports summary to `.csv` and `.txt`. |
 | `src/ReprintDialog.cs` | Modal dialog triggered when a spooler error/jam is detected. Gives user 4 choices: Resume from Page X, Reprint Entire File, Skip File, or Abort Batch. |
 | `src/ReportForm.cs` | UI form displaying the final audit summary with metric cards, item audit table, and CSV/text/receipt export buttons. |
-| `src/FeedbackForm.cs` | UI form allowing users to submit feature requests and bug reports directly to `hs123253@gmail.com` via mailto or clipboard copy. |
+| `src/FeedbackForm.cs` | UI form allowing users to submit feature requests and bug reports directly over HTTPS without an email app. |
+| `src/TelemetryService.cs` | Centralized anonymous error reporting and direct feedback submission over secure HTTPS with automatic PII / path redaction. |
 | `src/MainForm.cs` | Main application window. Fluid split layout: Left queue with drag-and-drop file drop & row reordering; Right previewer with page scroller, rotate button, and responsive TableLayout settings; Bottom action bar with progress, status, and control buttons. |
 | `src/Program.cs` | Application entry point with DPI awareness enablement and global unhandled exception catcher. |
 | `src/app.manifest` | Windows manifest declaring compatibility with Vista, 7, 8, 8.1, 10, and 11. |

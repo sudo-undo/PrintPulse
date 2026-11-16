@@ -1,16 +1,19 @@
 using System;
-using System.Diagnostics;
 using System.Drawing;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace PrintPulse
 {
     public class FeedbackForm : Form
     {
-        private const string TargetEmail = "hs123253@gmail.com";
+        private TextBox _txtEmail;
         private TextBox _txtSubject;
         private TextBox _txtMessage;
         private ComboBox _cbCategory;
+        private CheckBox _chkTelemetry;
+        private Button _btnSubmit;
+        private Label _lblStatus;
 
         public FeedbackForm()
         {
@@ -20,7 +23,7 @@ namespace PrintPulse
         private void InitComponents()
         {
             this.Text = "PrintPulse - Feedback & Feature Suggestions";
-            this.Size = new Size(540, 480);
+            this.Size = new Size(540, 520);
             this.StartPosition = FormStartPosition.CenterParent;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -38,7 +41,7 @@ namespace PrintPulse
 
             Label lblTitle = new Label
             {
-                Text = "Send Feedback & Suggestions",
+                Text = "Send Feedback & Feature Suggestions",
                 Font = new Font("Segoe UI", 11F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(67, 56, 202),
                 Location = new Point(20, 12),
@@ -47,7 +50,7 @@ namespace PrintPulse
 
             Label lblSubtitle = new Label
             {
-                Text = "We value your ideas! Messages are routed to: " + TargetEmail,
+                Text = "Your ideas go directly to the development team without needing an email app.",
                 Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
                 ForeColor = Color.FromArgb(99, 102, 241),
                 Location = new Point(22, 38),
@@ -67,35 +70,62 @@ namespace PrintPulse
             };
             _cbCategory.Items.AddRange(new object[] {
                 "Feature Suggestion / Improvement",
-                "Bug Report / Printing Issue",
+                "Bug Report / Printer Issue",
                 "New File Format Request",
                 "UI / Usability Feedback",
-                "General Question / Inquiries"
+                "General Question"
             });
             _cbCategory.SelectedIndex = 0;
 
-            Label lblSub = new Label { Text = "Subject:", Location = new Point(25, 145), AutoSize = true, ForeColor = Color.FromArgb(51, 65, 85) };
-            _txtSubject = new TextBox
+            Label lblEmail = new Label { Text = "Your Email (optional, if you'd like a response):", Location = new Point(25, 142), AutoSize = true, ForeColor = Color.FromArgb(51, 65, 85) };
+            _txtEmail = new TextBox
             {
-                Location = new Point(25, 168),
-                Size = new Size(470, 25),
-                Text = "PrintPulse Feedback: New Feature Idea"
+                Location = new Point(25, 164),
+                Size = new Size(470, 25)
             };
 
-            Label lblMsg = new Label { Text = "Your Feedback / Message:", Location = new Point(25, 205), AutoSize = true, ForeColor = Color.FromArgb(51, 65, 85) };
+            Label lblSub = new Label { Text = "Subject:", Location = new Point(25, 198), AutoSize = true, ForeColor = Color.FromArgb(51, 65, 85) };
+            _txtSubject = new TextBox
+            {
+                Location = new Point(25, 220),
+                Size = new Size(470, 25),
+                Text = "Feature Idea: "
+            };
+
+            Label lblMsg = new Label { Text = "Your Message / Details:", Location = new Point(25, 254), AutoSize = true, ForeColor = Color.FromArgb(51, 65, 85) };
             _txtMessage = new TextBox
             {
-                Location = new Point(25, 228),
-                Size = new Size(470, 130),
+                Location = new Point(25, 276),
+                Size = new Size(470, 100),
                 Multiline = true,
                 ScrollBars = ScrollBars.Vertical
             };
 
-            // Buttons
-            Button btnSend = new Button
+            _chkTelemetry = new CheckBox
             {
-                Text = "✉ Send via Email",
-                Location = new Point(25, 380),
+                Text = "Include anonymous diagnostic details (OS version & printer status) to help fix bugs",
+                Location = new Point(25, 384),
+                Size = new Size(470, 22),
+                Checked = TelemetryService.IsTelemetryEnabled,
+                Font = new Font("Segoe UI", 8F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(100, 116, 139)
+            };
+            _chkTelemetry.CheckedChanged += (s, e) => { TelemetryService.IsTelemetryEnabled = _chkTelemetry.Checked; };
+
+            _lblStatus = new Label
+            {
+                Text = "",
+                Location = new Point(25, 410),
+                Size = new Size(470, 20),
+                ForeColor = Color.FromArgb(16, 185, 129),
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
+            };
+
+            // Buttons
+            _btnSubmit = new Button
+            {
+                Text = "🚀 Submit Feedback",
+                Location = new Point(25, 435),
                 Size = new Size(160, 36),
                 BackColor = Color.FromArgb(79, 70, 229),
                 ForeColor = Color.White,
@@ -103,13 +133,13 @@ namespace PrintPulse
                 Cursor = Cursors.Hand,
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold)
             };
-            btnSend.FlatAppearance.BorderSize = 0;
-            btnSend.Click += (s, e) => SendMail();
+            _btnSubmit.FlatAppearance.BorderSize = 0;
+            _btnSubmit.Click += (s, e) => SubmitDirect();
 
             Button btnCopy = new Button
             {
                 Text = "📋 Copy to Clipboard",
-                Location = new Point(195, 380),
+                Location = new Point(195, 435),
                 Size = new Size(160, 36),
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(51, 65, 85),
@@ -122,7 +152,7 @@ namespace PrintPulse
             Button btnClose = new Button
             {
                 Text = "Close",
-                Location = new Point(395, 380),
+                Location = new Point(395, 435),
                 Size = new Size(100, 36),
                 BackColor = Color.FromArgb(241, 245, 249),
                 ForeColor = Color.FromArgb(71, 85, 105),
@@ -135,42 +165,72 @@ namespace PrintPulse
             this.Controls.Add(pnlHeader);
             this.Controls.Add(lblCat);
             this.Controls.Add(_cbCategory);
+            this.Controls.Add(lblEmail);
+            this.Controls.Add(_txtEmail);
             this.Controls.Add(lblSub);
             this.Controls.Add(_txtSubject);
             this.Controls.Add(lblMsg);
             this.Controls.Add(_txtMessage);
-            this.Controls.Add(btnSend);
+            this.Controls.Add(_chkTelemetry);
+            this.Controls.Add(_lblStatus);
+            this.Controls.Add(_btnSubmit);
             this.Controls.Add(btnCopy);
             this.Controls.Add(btnClose);
         }
 
-        private void SendMail()
+        private void SubmitDirect()
         {
-            try
+            if (string.IsNullOrEmpty(_txtMessage.Text.Trim()))
             {
-                string category = _cbCategory.SelectedItem != null ? _cbCategory.SelectedItem.ToString() : "General";
-                string subject = Uri.EscapeDataString(string.Format("[PrintPulse - {0}] {1}", category, _txtSubject.Text.Trim()));
-                string body = Uri.EscapeDataString(_txtMessage.Text.Trim() + "\n\n(Sent from PrintPulse v1.0 on Windows " + Environment.OSVersion.VersionString + ")");
+                MessageBox.Show("Please enter your message before submitting.", "Message Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
 
-                string mailtoUrl = string.Format("mailto:{0}?subject={1}&body={2}", TargetEmail, subject, body);
-                Process.Start(new ProcessStartInfo(mailtoUrl) { UseShellExecute = true });
-            }
-            catch (Exception ex)
+            _btnSubmit.Enabled = false;
+            _btnSubmit.Text = "Sending...";
+            _lblStatus.Text = "Submitting directly to server...";
+            _lblStatus.ForeColor = Color.FromArgb(79, 70, 229);
+
+            string category = _cbCategory.SelectedItem != null ? _cbCategory.SelectedItem.ToString() : "General";
+            string email = _txtEmail.Text.Trim();
+            string subject = _txtSubject.Text.Trim();
+            string message = _txtMessage.Text.Trim();
+
+            ThreadPool.QueueUserWorkItem(state =>
             {
-                MessageBox.Show("Could not launch your email application automatically:\n" + ex.Message + "\n\nPlease click 'Copy to Clipboard' and send manually to " + TargetEmail,
-                    "Email Notice", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
+                string responseMsg;
+                bool ok = TelemetryService.SubmitFeedback(category, email, subject, message, out responseMsg);
+
+                this.BeginInvoke(new Action(() =>
+                {
+                    _btnSubmit.Enabled = true;
+                    _btnSubmit.Text = "🚀 Submit Feedback";
+
+                    if (ok)
+                    {
+                        _lblStatus.Text = "✔ Feedback received! Thank you for helping improve PrintPulse.";
+                        _lblStatus.ForeColor = Color.FromArgb(22, 101, 52);
+                        MessageBox.Show("Thank you! Your feedback has been sent directly to the development team.", "Feedback Submitted", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        this.Close();
+                    }
+                    else
+                    {
+                        _lblStatus.Text = "Could not send directly: " + responseMsg;
+                        _lblStatus.ForeColor = Color.FromArgb(225, 29, 72);
+                        MessageBox.Show("Network issue sending feedback:\n" + responseMsg + "\n\nYou can click 'Copy to Clipboard' to save your message.", "Notice", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                }));
+            });
         }
 
         private void CopyDetails()
         {
             string category = _cbCategory.SelectedItem != null ? _cbCategory.SelectedItem.ToString() : "General";
-            string text = string.Format("To: {0}\nSubject: [PrintPulse - {1}] {2}\n\nMessage:\n{3}\n\n(OS: Windows {4})",
-                TargetEmail, category, _txtSubject.Text.Trim(), _txtMessage.Text.Trim(), Environment.OSVersion.VersionString);
+            string text = string.Format("Category: {0}\nEmail: {1}\nSubject: {2}\n\nMessage:\n{3}\n\n(PrintPulse v1.0 on Windows {4})",
+                category, _txtEmail.Text.Trim(), _txtSubject.Text.Trim(), _txtMessage.Text.Trim(), Environment.OSVersion.VersionString);
 
             Clipboard.SetText(text);
-            MessageBox.Show("Feedback details copied to clipboard!\nYou can paste it directly into your webmail (Gmail, Outlook, Yahoo) to " + TargetEmail,
-                "Copied", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("Feedback details copied to clipboard!", "Copied", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
 }

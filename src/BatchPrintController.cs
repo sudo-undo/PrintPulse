@@ -128,6 +128,7 @@ namespace PrintPulse
                 string hardwareError = CheckPrinterHardwareStatus();
                 if (!string.IsNullOrEmpty(hardwareError))
                 {
+                    TelemetryService.TrackError("SpoolerHardwareError", hardwareError, TargetPrinterName, null);
                     Log("Hardware issue detected on " + TargetPrinterName + ": " + hardwareError);
                     HandleErrorPrompt(item, hardwareError, 1);
                     if (_chosenRecovery == ErrorRecoveryChoice.AbortBatch)
@@ -173,6 +174,7 @@ namespace PrintPulse
                     else
                     {
                         // Failure during printing
+                        TelemetryService.TrackError("DocumentPrintError", item.ErrorDetails, TargetPrinterName, null);
                         Log("Error occurred while printing " + item.FileName);
                         HandleErrorPrompt(item, item.ErrorDetails ?? "Spooler / Paper Error", item.CurrentPageProcessing);
 
