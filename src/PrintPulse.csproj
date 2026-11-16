@@ -48,6 +48,10 @@
     <Compile Include="ReportForm.cs" />
     <Compile Include="FeedbackForm.cs" />
     <Compile Include="TelemetryService.cs" />
+    <Compile Include="ManualDuplexWizard.cs" />
+    <Compile Include="SessionManager.cs" />
+    <Compile Include="WatchFolderService.cs" />
+    <Compile Include="AdvancedOptionsForm.cs" />
     <Compile Include="MainForm.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>

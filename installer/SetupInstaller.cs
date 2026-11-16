@@ -44,7 +44,7 @@ namespace PrintPulseInstaller
 
             Label lblTitle = new Label
             {
-                Text = "Install PrintPulse v1.0",
+                Text = "Install PrintPulse v1.1.0",
                 Font = new Font("Segoe UI", 12F, FontStyle.Bold),
                 ForeColor = Color.White,
                 Location = new Point(20, 15),
@@ -297,7 +297,7 @@ namespace PrintPulseInstaller
                     if (key != null)
                     {
                         key.SetValue("DisplayName", "PrintPulse (Batch Print Studio)");
-                        key.SetValue("DisplayVersion", "1.0.0");
+                        key.SetValue("DisplayVersion", "1.1.0");
                         key.SetValue("Publisher", "PrintPulse Technologies");
                         key.SetValue("DisplayIcon", exePath);
                         key.SetValue("InstallLocation", installDir);

@@ -144,6 +144,9 @@ namespace PrintPulse
                     }
                 }
 
+                // Slip Sheet Separator
+                PrintSlipSheet(item, i + 1, items.Count);
+
                 // Execute print
                 int startFromPage = 1;
                 bool fileDone = false;
@@ -268,6 +271,47 @@ namespace PrintPulse
             return issues.Count > 0 ? string.Join(", ", issues.ToArray()) : null;
         }
 
+        public event Func<string, int, int, bool> OnRequestManualDuplexFlip;
+
+        private void PrintSlipSheet(PrintJobItem item, int jobIndex, int totalJobs)
+        {
+            try
+            {
+                if (AdvancedOptionsForm.CurrentSlipSheetMode == SlipSheetMode.None) return;
+
+                using (PrintDocument pd = new PrintDocument())
+                {
+                    pd.PrinterSettings.PrinterName = TargetPrinterName;
+                    pd.DocumentName = "PrintPulse - Separator Slip - " + item.FileName;
+                    pd.DefaultPageSettings.Color = false;
+
+                    pd.PrintPage += (sender, e) =>
+                    {
+                        Rectangle bounds = e.MarginBounds;
+                        if (AdvancedOptionsForm.CurrentSlipSheetMode == SlipSheetMode.DetailedSlip)
+                        {
+                            using (Bitmap slip = DocumentRenderer.RenderSlipSheet(item, jobIndex, totalJobs, bounds.Width, bounds.Height))
+                            {
+                                e.Graphics.DrawImage(slip, bounds.Left, bounds.Top, bounds.Width, bounds.Height);
+                            }
+                        }
+                        else
+                        {
+                            // Blank page
+                            e.Graphics.Clear(Color.White);
+                        }
+                        e.HasMorePages = false;
+                    };
+                    pd.Print();
+                    Log("Printed separator slip for " + item.FileName);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log("Warning: Could not print separator slip: " + ex.Message);
+            }
+        }
+
         private bool ExecuteSingleDocumentPrint(PrintJobItem item, int startFromPage)
         {
             try
@@ -280,15 +324,39 @@ namespace PrintPulse
                     // Set copies
                     pd.PrinterSettings.Copies = (short)Math.Max(1, item.Copies);
 
-                    // Set Duplex
-                    if (pd.PrinterSettings.CanDuplex)
+                    // Set Paper Tray / Bin if configured
+                    if (!string.IsNullOrEmpty(item.PaperSourceTray) && !item.PaperSourceTray.Equals("Auto / Default", StringComparison.OrdinalIgnoreCase))
                     {
-                        if (item.DuplexMode == DuplexPrintMode.DuplexLongEdge)
-                            pd.PrinterSettings.Duplex = Duplex.Vertical;
-                        else if (item.DuplexMode == DuplexPrintMode.DuplexShortEdge)
-                            pd.PrinterSettings.Duplex = Duplex.Horizontal;
+                        foreach (PaperSource source in pd.PrinterSettings.PaperSources)
+                        {
+                            if (string.Equals(source.SourceName, item.PaperSourceTray, StringComparison.OrdinalIgnoreCase))
+                            {
+                                pd.DefaultPageSettings.PaperSource = source;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Set Duplex
+                    bool needsManualDuplex = false;
+                    if (item.DuplexMode != DuplexPrintMode.Simplex)
+                    {
+                        if (pd.PrinterSettings.CanDuplex)
+                        {
+                            if (item.DuplexMode == DuplexPrintMode.DuplexLongEdge)
+                                pd.PrinterSettings.Duplex = Duplex.Vertical;
+                            else if (item.DuplexMode == DuplexPrintMode.DuplexShortEdge)
+                                pd.PrinterSettings.Duplex = Duplex.Horizontal;
+                        }
                         else
+                        {
+                            needsManualDuplex = true;
                             pd.PrinterSettings.Duplex = Duplex.Simplex;
+                        }
+                    }
+                    else
+                    {
+                        pd.PrinterSettings.Duplex = Duplex.Simplex;
                     }
 
                     // Set Color
@@ -304,7 +372,6 @@ namespace PrintPulse
                         pd.DefaultPageSettings.Landscape = false;
 
                     List<int> pagesToPrint = item.ResolvePageIndices();
-                    // Filter to startFromPage onwards
                     List<int> finalPages = new List<int>();
                     foreach (int p in pagesToPrint)
                     {
@@ -313,38 +380,40 @@ namespace PrintPulse
 
                     if (finalPages.Count == 0) return true;
 
-                    int pageCursor = 0;
-                    item.ActualPagesPrinted = 0;
-
-                    pd.PrintPage += (sender, e) =>
+                    if (needsManualDuplex && OnRequestManualDuplexFlip != null)
                     {
-                        if (_isCancelRequested)
+                        // Split into Front (Odd index) and Back (Even index) passes
+                        List<int> frontPages = new List<int>();
+                        List<int> backPages = new List<int>();
+
+                        for (int idx = 0; idx < finalPages.Count; idx++)
                         {
-                            e.Cancel = true;
-                            return;
+                            if (idx % 2 == 0) frontPages.Add(finalPages[idx]);
+                            else backPages.Add(finalPages[idx]);
                         }
 
-                        int currentPageNumber = finalPages[pageCursor];
-                        item.CurrentPageProcessing = currentPageNumber;
+                        // Pass 1: Front pages
+                        Log(string.Format("Printing front sides ({0} sheets)...", frontPages.Count));
+                        bool pass1 = PrintPageList(pd, item, frontPages);
+                        if (!pass1 || _isCancelRequested) return false;
 
-                        if (OnPageProgress != null)
-                            OnPageProgress(item, currentPageNumber, item.TotalPages);
-
-                        // Render the page onto the printer graphics context
-                        Rectangle marginBounds = e.MarginBounds;
-                        using (Bitmap pageBmp = DocumentRenderer.RenderPageThumbnail(item, currentPageNumber, marginBounds.Width, marginBounds.Height))
+                        // Prompt user to flip stack
+                        bool resume = OnRequestManualDuplexFlip(item.FileName, 1, frontPages.Count);
+                        if (!resume || _isCancelRequested)
                         {
-                            e.Graphics.DrawImage(pageBmp, marginBounds.Left, marginBounds.Top, marginBounds.Width, marginBounds.Height);
+                            Log("Manual duplex cancelled by user after front pass.");
+                            return false;
                         }
 
-                        item.ActualPagesPrinted++;
-                        pageCursor++;
-
-                        e.HasMorePages = (pageCursor < finalPages.Count);
-                    };
-
-                    pd.Print();
-                    return true;
+                        // Pass 2: Back pages
+                        Log(string.Format("Printing back sides ({0} sheets)...", backPages.Count));
+                        bool pass2 = PrintPageList(pd, item, backPages);
+                        return pass2;
+                    }
+                    else
+                    {
+                        return PrintPageList(pd, item, finalPages);
+                    }
                 }
             }
             catch (Exception ex)
@@ -352,6 +421,71 @@ namespace PrintPulse
                 item.ErrorDetails = ex.Message;
                 return false;
             }
+        }
+
+        private bool PrintPageList(PrintDocument pd, PrintJobItem item, List<int> pages)
+        {
+            int pageCursor = 0;
+            pd.PrintPage += (sender, e) =>
+            {
+                if (_isCancelRequested)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+
+                int nup = (item.LayoutMode == PageLayoutMode.TwoUp) ? 2 : (item.LayoutMode == PageLayoutMode.FourUp ? 4 : 1);
+                Rectangle marginBounds = e.MarginBounds;
+
+                List<Bitmap> chunkBmps = new List<Bitmap>();
+                for (int c = 0; c < nup && pageCursor < pages.Count; c++)
+                {
+                    int currentPageNumber = pages[pageCursor];
+                    item.CurrentPageProcessing = currentPageNumber;
+
+                    if (OnPageProgress != null)
+                        OnPageProgress(item, currentPageNumber, item.TotalPages);
+
+                    Bitmap pageBmp = DocumentRenderer.RenderPageThumbnail(item, currentPageNumber, marginBounds.Width, marginBounds.Height);
+
+                    // Blank page suppression check
+                    if ((item.SkipBlankPages || AdvancedOptionsForm.GlobalSkipBlankPages) && DocumentRenderer.IsPageBlank(pageBmp, 0.992f))
+                    {
+                        Log(string.Format("Skipped blank page {0} in {1}", currentPageNumber, item.FileName));
+                        pageBmp.Dispose();
+                        pageCursor++;
+                        c--; // Retry slot
+                        continue;
+                    }
+
+                    // Apply toner saver or grayscale if needed
+                    Bitmap finalBmp = DocumentRenderer.ApplyRotatedAndFiltered(pageBmp, item.RotationDegrees, item.ColorMode == ColorPrintMode.Monochrome, item.TonerSaver);
+                    pageBmp.Dispose();
+                    chunkBmps.Add(finalBmp);
+
+                    item.ActualPagesPrinted++;
+                    pageCursor++;
+                }
+
+                if (chunkBmps.Count > 0)
+                {
+                    if (item.LayoutMode == PageLayoutMode.TwoUp || item.LayoutMode == PageLayoutMode.FourUp)
+                    {
+                        DocumentRenderer.DrawNUp(e.Graphics, marginBounds, chunkBmps, item.LayoutMode, true);
+                    }
+                    else
+                    {
+                        e.Graphics.DrawImage(chunkBmps[0], marginBounds.Left, marginBounds.Top, marginBounds.Width, marginBounds.Height);
+                    }
+
+                    foreach (Bitmap b in chunkBmps) b.Dispose();
+                }
+
+                e.HasMorePages = (pageCursor < pages.Count);
+            };
+
+            pd.Print();
+            return true;
         }
     }
 }

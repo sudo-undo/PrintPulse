@@ -43,6 +43,36 @@ namespace PrintPulse
         Landscape
     }
 
+    public enum PageRangeMode
+    {
+        All,
+        CurrentPage,
+        CustomRange
+    }
+
+    public enum PageSubset
+    {
+        AllPages,
+        OddOnly,
+        EvenOnly
+    }
+
+    public enum PageScalingMode
+    {
+        Fit,
+        ActualSize,
+        ShrinkOversized,
+        CustomScale
+    }
+
+    public enum PageLayoutMode
+    {
+        OneUp,
+        TwoUp,
+        FourUp,
+        Booklet
+    }
+
     public class PrintJobItem
     {
         public string Id { get; private set; }
@@ -54,13 +84,25 @@ namespace PrintPulse
         public bool IsEnabled { get; set; }
 
         // Print settings
-        public string PageRange { get; set; } // "All" or e.g. "1-4, 7"
+        public PageRangeMode RangeMode { get; set; }
+        public string PageRange { get; set; } // e.g. "1-4, 7"
+        public PageSubset Subset { get; set; }
+        public bool ReverseOrder { get; set; }
+        public PageScalingMode Scaling { get; set; }
+        public int CustomScalePercent { get; set; }
+        public int CurrentPreviewPage { get; set; }
+
         public int Copies { get; set; }
         public ColorPrintMode ColorMode { get; set; }
         public DuplexPrintMode DuplexMode { get; set; }
         public PageOrientationMode Orientation { get; set; }
+        public PageLayoutMode LayoutMode { get; set; }
         public int NUp { get; set; } // 1, 2, 4
         public int RotationDegrees { get; set; } // 0, 90, 180, 270
+
+        public string PaperSourceTray { get; set; }
+        public bool SkipBlankPages { get; set; }
+        public bool TonerSaver { get; set; }
 
         // Live execution status
         public PrintItemStatus Status { get; set; }
@@ -79,14 +121,27 @@ namespace PrintPulse
             IsEnabled = true;
             Status = PrintItemStatus.Queued;
             StatusMessage = "Ready in queue";
+
+            RangeMode = PageRangeMode.All;
             PageRange = "All";
+            Subset = PageSubset.AllPages;
+            ReverseOrder = false;
+            Scaling = PageScalingMode.Fit;
+            CustomScalePercent = 100;
+            CurrentPreviewPage = 1;
+
             Copies = 1;
             ColorMode = ColorPrintMode.Monochrome;
             DuplexMode = DuplexPrintMode.Simplex;
             Orientation = PageOrientationMode.Auto;
+            LayoutMode = PageLayoutMode.OneUp;
             NUp = 1;
             RotationDegrees = 0;
             TotalPages = 1;
+
+            PaperSourceTray = "Auto";
+            SkipBlankPages = false;
+            TonerSaver = false;
 
             if (File.Exists(filePath))
             {
@@ -115,54 +170,89 @@ namespace PrintPulse
         public List<int> ResolvePageIndices()
         {
             List<int> pages = new List<int>();
-            if (string.IsNullOrEmpty(PageRange) || PageRange.Trim().Equals("All", StringComparison.OrdinalIgnoreCase))
+
+            if (RangeMode == PageRangeMode.CurrentPage)
+            {
+                int cur = Math.Max(1, Math.Min(TotalPages, CurrentPreviewPage));
+                pages.Add(cur);
+            }
+            else if (RangeMode == PageRangeMode.All || string.IsNullOrEmpty(PageRange) || PageRange.Trim().Equals("All", StringComparison.OrdinalIgnoreCase))
             {
                 for (int i = 1; i <= Math.Max(1, TotalPages); i++)
                     pages.Add(i);
-                return pages;
             }
-
-            string[] tokens = PageRange.Split(new char[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (string t in tokens)
+            else
             {
-                string token = t.Trim();
-                if (token.Contains("-"))
+                string[] tokens = PageRange.Split(new char[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string t in tokens)
                 {
-                    string[] parts = token.Split('-');
-                    int start, end;
-                    if (int.TryParse(parts[0].Trim(), out start) && int.TryParse(parts[1].Trim(), out end))
+                    string token = t.Trim();
+                    if (token.Contains("-"))
                     {
-                        for (int p = Math.Max(1, start); p <= Math.Min(TotalPages, end); p++)
+                        string[] parts = token.Split('-');
+                        int start, end;
+                        if (int.TryParse(parts[0].Trim(), out start) && int.TryParse(parts[1].Trim(), out end))
                         {
-                            if (!pages.Contains(p)) pages.Add(p);
+                            for (int p = Math.Max(1, start); p <= Math.Min(TotalPages, end); p++)
+                            {
+                                if (!pages.Contains(p)) pages.Add(p);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        int single;
+                        if (int.TryParse(token, out single))
+                        {
+                            if (single >= 1 && single <= TotalPages && !pages.Contains(single))
+                                pages.Add(single);
                         }
                     }
                 }
-                else
+
+                if (pages.Count == 0)
                 {
-                    int single;
-                    if (int.TryParse(token, out single))
-                    {
-                        if (single >= 1 && single <= TotalPages && !pages.Contains(single))
-                            pages.Add(single);
-                    }
+                    for (int i = 1; i <= Math.Max(1, TotalPages); i++)
+                        pages.Add(i);
                 }
             }
 
-            if (pages.Count == 0)
+            // Apply Subset filtering (Odd / Even)
+            if (Subset == PageSubset.OddOnly)
             {
-                for (int i = 1; i <= Math.Max(1, TotalPages); i++)
-                    pages.Add(i);
+                pages.RemoveAll(delegate(int p) { return p % 2 == 0; });
             }
+            else if (Subset == PageSubset.EvenOnly)
+            {
+                pages.RemoveAll(delegate(int p) { return p % 2 != 0; });
+            }
+
+            // Apply Reverse Order
+            if (ReverseOrder)
+            {
+                pages.Reverse();
+            }
+
             return pages;
         }
 
         public int CalculateSheetCount()
         {
             List<int> pages = ResolvePageIndices();
-            int pagesPerCopy = pages.Count;
-            int effectivePages = (int)Math.Ceiling(pagesPerCopy / (double)Math.Max(1, NUp));
+            int count = pages.Count;
+            if (count == 0) return 0;
 
+            if (LayoutMode == PageLayoutMode.Booklet)
+            {
+                // Booklet: 4 logical pages per physical sheet (2 on front, 2 on back)
+                return (int)Math.Ceiling(count / 4.0) * Math.Max(1, Copies);
+            }
+
+            int nupFactor = 1;
+            if (LayoutMode == PageLayoutMode.TwoUp) nupFactor = 2;
+            else if (LayoutMode == PageLayoutMode.FourUp) nupFactor = 4;
+
+            int effectivePages = (int)Math.Ceiling(count / (double)nupFactor);
             int sheetsPerCopy = effectivePages;
             if (DuplexMode != DuplexPrintMode.Simplex)
             {

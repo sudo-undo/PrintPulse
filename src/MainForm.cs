@@ -14,6 +14,7 @@ namespace PrintPulse
 
         private BatchPrintController _controller;
         private BatchReport _lastReport;
+        public WatchFolderService WatchService { get; private set; }
 
         // UI Controls - Top
         private ComboBox _cbPrinters;
@@ -21,6 +22,10 @@ namespace PrintPulse
 
         // UI Controls - Left Queue
         private ListView _lvQueue;
+        private Panel _pnlSmartAdvisor;
+        private Label _lblAdvisorText;
+        private Button _btnAdvisorApply;
+        private Action _advisorApplyAction;
 
         // UI Controls - Right Preview
         private PictureBox _pbPreview;
@@ -29,12 +34,30 @@ namespace PrintPulse
         private Button _btnNextPage;
         private Button _btnRotate;
 
-        // Per-Item Property Controls
-        private TextBox _txtPageRange;
+        // Adobe Acrobat Style Property Controls
         private NumericUpDown _numCopies;
+        private RadioButton _rbPagesAll;
+        private RadioButton _rbPagesCurrent;
+        private RadioButton _rbPagesCustom;
+        private TextBox _txtCustomPages;
+        private ComboBox _cbPageSubset;
+        private CheckBox _chkReverseOrder;
+
+        private RadioButton _rbScaleFit;
+        private RadioButton _rbScaleActual;
+        private RadioButton _rbScaleShrink;
+        private RadioButton _rbScaleCustom;
+        private NumericUpDown _numCustomScale;
+
+        private ComboBox _cbLayoutMode;
         private ComboBox _cbColorMode;
+        private CheckBox _chkTonerSaver;
         private ComboBox _cbDuplexMode;
-        private ComboBox _cbNUp;
+        private ComboBox _cbPaperTray;
+
+        private RadioButton _rbOrientAuto;
+        private RadioButton _rbOrientPortrait;
+        private RadioButton _rbOrientLandscape;
 
         // UI Controls - Bottom
         private ProgressBar _progressBar;
@@ -47,6 +70,7 @@ namespace PrintPulse
 
         private SplitContainer _split;
         private int _draggedItemIndex = -1;
+        private bool _isUpdatingInputs = false;
 
         public MainForm()
         {
@@ -56,17 +80,34 @@ namespace PrintPulse
             _controller.OnItemFinished += Controller_OnItemFinished;
             _controller.OnErrorDetected += Controller_OnErrorDetected;
             _controller.OnBatchFinished += Controller_OnBatchFinished;
+            _controller.OnRequestManualDuplexFlip += Controller_OnRequestManualDuplexFlip;
+
+            WatchService = new WatchFolderService();
+            WatchService.FileDropped += WatchService_FileDropped;
 
             InitializeUI();
             RefreshPrinterList();
             UpdateSummaryMetrics();
+
+            this.Shown += delegate
+            {
+                try
+                {
+                    if (_split != null && this.Width > 200)
+                    {
+                        _split.SplitterDistance = (int)(this.Width * 0.48);
+                    }
+                    RestorePreviousSession();
+                }
+                catch { }
+            };
         }
 
         private void InitializeUI()
         {
-            this.Text = "PrintPulse - Batch Print Studio (Fully Unlocked)";
-            this.Size = new Size(1100, 720);
-            this.MinimumSize = new Size(880, 580);
+            this.Text = "PrintPulse v1.1.0 — Universal Batch Print Studio (Commercial Grade)";
+            this.Size = new Size(1160, 760);
+            this.MinimumSize = new Size(940, 620);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = Color.FromArgb(248, 250, 252);
             this.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
@@ -77,7 +118,7 @@ namespace PrintPulse
             this.FormClosing += MainForm_FormClosing;
 
             // =========================================================================
-            // 1. TOP TOOLBAR (RESPONSIVE SPLIT: Left Actions Flow + Right Printer Dock)
+            // 1. TOP TOOLBAR
             // =========================================================================
             Panel topBar = new Panel
             {
@@ -87,11 +128,10 @@ namespace PrintPulse
                 Padding = new Padding(8, 6, 8, 6)
             };
 
-            // Top-Right: Printer Selection Panel
             Panel pnlTopRight = new Panel
             {
                 Dock = DockStyle.Right,
-                Width = 360,
+                Width = 370,
                 BackColor = Color.Transparent
             };
 
@@ -106,7 +146,7 @@ namespace PrintPulse
 
             _lblPrinterStatus = new Label
             {
-                Text = "Checking...",
+                Text = "Ready",
                 Font = new Font("Segoe UI", 8F, FontStyle.Regular),
                 ForeColor = Color.FromArgb(16, 185, 129),
                 Location = new Point(95, 6),
@@ -116,20 +156,19 @@ namespace PrintPulse
             _cbPrinters = new ComboBox
             {
                 Location = new Point(5, 24),
-                Size = new Size(310, 26),
+                Size = new Size(320, 26),
                 DropDownStyle = ComboBoxStyle.DropDownList
             };
-            _cbPrinters.SelectedIndexChanged += (s, e) => UpdateSelectedPrinterStatus();
+            _cbPrinters.SelectedIndexChanged += delegate { UpdateSelectedPrinterStatus(); };
 
-            Button btnRefreshPrinters = CreateModernButton("⟳", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 320, 23, 34, 27);
-            btnRefreshPrinters.Click += (s, e) => RefreshPrinterList();
+            Button btnRefreshPrinters = CreateModernButton("⟳", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 330, 23, 34, 27);
+            btnRefreshPrinters.Click += delegate { RefreshPrinterList(); };
 
             pnlTopRight.Controls.Add(lblPrinter);
             pnlTopRight.Controls.Add(_lblPrinterStatus);
             pnlTopRight.Controls.Add(_cbPrinters);
             pnlTopRight.Controls.Add(btnRefreshPrinters);
 
-            // Top-Left: Queue & Feedback Flow Panel
             FlowLayoutPanel flowTopLeft = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -140,22 +179,25 @@ namespace PrintPulse
             };
 
             Button btnAddFiles = CreateModernButton("+ Add Files", Color.FromArgb(79, 70, 229), Color.White, 0, 0, 95, 32);
-            btnAddFiles.Click += (s, e) => AddFilesDialog();
+            btnAddFiles.Click += delegate { AddFilesDialog(); };
 
             Button btnAddFolder = CreateModernButton("+ Folder", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 0, 0, 75, 32);
-            btnAddFolder.Click += (s, e) => AddFolderDialog();
+            btnAddFolder.Click += delegate { AddFolderDialog(); };
 
             Button btnClear = CreateModernButton("Clear", Color.FromArgb(241, 245, 249), Color.FromArgb(225, 29, 72), 0, 0, 60, 32);
-            btnClear.Click += (s, e) => ClearQueue();
+            btnClear.Click += delegate { ClearQueue(); };
 
             Button btnMoveUp = CreateModernButton("▲ Up", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 0, 0, 60, 32);
-            btnMoveUp.Click += (s, e) => MoveSelectedItem(-1);
+            btnMoveUp.Click += delegate { MoveSelectedItem(-1); };
 
             Button btnMoveDown = CreateModernButton("▼ Down", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 0, 0, 70, 32);
-            btnMoveDown.Click += (s, e) => MoveSelectedItem(1);
+            btnMoveDown.Click += delegate { MoveSelectedItem(1); };
 
             Button btnRemove = CreateModernButton("✕ Remove", Color.FromArgb(241, 245, 249), Color.FromArgb(100, 116, 139), 0, 0, 80, 32);
-            btnRemove.Click += (s, e) => RemoveSelectedItem();
+            btnRemove.Click += delegate { RemoveSelectedItem(); };
+
+            Button btnAdvanced = CreateModernButton("⚙ Advanced Options", Color.FromArgb(241, 245, 249), Color.FromArgb(79, 70, 229), 0, 0, 145, 32);
+            btnAdvanced.Click += delegate { OpenAdvancedOptions(); };
 
             flowTopLeft.Controls.Add(btnAddFiles);
             flowTopLeft.Controls.Add(btnAddFolder);
@@ -163,12 +205,13 @@ namespace PrintPulse
             flowTopLeft.Controls.Add(btnMoveUp);
             flowTopLeft.Controls.Add(btnMoveDown);
             flowTopLeft.Controls.Add(btnRemove);
+            flowTopLeft.Controls.Add(btnAdvanced);
 
             topBar.Controls.Add(flowTopLeft);
             topBar.Controls.Add(pnlTopRight);
 
             // =========================================================================
-            // 2. BOTTOM ACTION BAR (RESPONSIVE SPLIT: Left Status Info + Right Buttons)
+            // 2. BOTTOM ACTION BAR
             // =========================================================================
             Panel bottomBar = new Panel
             {
@@ -178,7 +221,6 @@ namespace PrintPulse
                 Padding = new Padding(12, 8, 12, 8)
             };
 
-            // Bottom-Right Action Buttons
             FlowLayoutPanel flowBottomRight = new FlowLayoutPanel
             {
                 Dock = DockStyle.Right,
@@ -190,22 +232,22 @@ namespace PrintPulse
 
             _btnViewReport = CreateModernButton("📊 View Report", Color.FromArgb(241, 245, 249), Color.FromArgb(79, 70, 229), 0, 0, 110, 42);
             _btnViewReport.Enabled = false;
-            _btnViewReport.Click += (s, e) => ShowReport();
+            _btnViewReport.Click += delegate { ShowReport(); };
 
             _btnStart = CreateModernButton("▶ START PRINT", Color.FromArgb(16, 185, 129), Color.White, 0, 0, 135, 42);
             _btnStart.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            _btnStart.Click += (s, e) => StartBatch();
+            _btnStart.Click += delegate { StartBatch(); };
 
             _btnPause = CreateModernButton("❚❚ Pause", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 0, 0, 85, 42);
             _btnPause.Enabled = false;
-            _btnPause.Click += (s, e) => TogglePause();
+            _btnPause.Click += delegate { TogglePause(); };
 
             _btnCancel = CreateModernButton("■ Stop", Color.FromArgb(241, 245, 249), Color.FromArgb(225, 29, 72), 0, 0, 75, 42);
             _btnCancel.Enabled = false;
-            _btnCancel.Click += (s, e) => CancelBatch();
+            _btnCancel.Click += delegate { CancelBatch(); };
 
             Button btnFeedback = CreateModernButton("💬 Feedback", Color.FromArgb(241, 245, 249), Color.FromArgb(100, 116, 139), 0, 0, 95, 42);
-            btnFeedback.Click += (s, e) => OpenFeedback();
+            btnFeedback.Click += delegate { OpenFeedback(); };
 
             flowBottomRight.Controls.Add(btnFeedback);
             flowBottomRight.Controls.Add(_btnViewReport);
@@ -213,7 +255,6 @@ namespace PrintPulse
             flowBottomRight.Controls.Add(_btnPause);
             flowBottomRight.Controls.Add(_btnCancel);
 
-            // Bottom-Left Status & Summary
             Panel pnlBottomLeft = new Panel
             {
                 Dock = DockStyle.Fill,
@@ -264,15 +305,49 @@ namespace PrintPulse
                 BackColor = Color.FromArgb(226, 232, 240)
             };
 
-            // LEFT PANEL: QUEUE
+            // LEFT PANEL: QUEUE + SMART ADVISOR
             Panel pnlQueue = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+
+            // Smart Print Advisor Banner
+            _pnlSmartAdvisor = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 40,
+                BackColor = Color.FromArgb(254, 243, 199),
+                Visible = false,
+                Padding = new Padding(10, 6, 10, 6)
+            };
+
+            _lblAdvisorText = new Label
+            {
+                Text = "💡 Tip: Smart recommendation available.",
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(146, 64, 14),
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            _btnAdvisorApply = CreateModernButton("Apply", Color.FromArgb(217, 119, 6), Color.White, 0, 0, 65, 26);
+            _btnAdvisorApply.Dock = DockStyle.Right;
+            _btnAdvisorApply.Click += delegate
+            {
+                if (_advisorApplyAction != null)
+                {
+                    _advisorApplyAction();
+                    _pnlSmartAdvisor.Visible = false;
+                }
+            };
+
+            _pnlSmartAdvisor.Controls.Add(_lblAdvisorText);
+            _pnlSmartAdvisor.Controls.Add(_btnAdvisorApply);
+
             Label lblQueueHeader = new Label
             {
                 Text = "PRINT QUEUE (DRAG TO REORDER)",
                 Font = new Font("Segoe UI", 8F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(100, 116, 139),
                 Dock = DockStyle.Top,
-                Height = 28,
+                Height = 26,
                 Padding = new Padding(10, 6, 0, 0)
             };
 
@@ -288,49 +363,50 @@ namespace PrintPulse
             };
             _lvQueue.Columns.Add("", 28);
             _lvQueue.Columns.Add("#", 32);
-            _lvQueue.Columns.Add("File Name", 220);
+            _lvQueue.Columns.Add("File Name", 190);
             _lvQueue.Columns.Add("Pages", 50);
             _lvQueue.Columns.Add("Copies", 50);
             _lvQueue.Columns.Add("Color", 60);
-            _lvQueue.Columns.Add("Duplex", 70);
-            _lvQueue.Columns.Add("Status", 90);
+            _lvQueue.Columns.Add("Duplex", 75);
+            _lvQueue.Columns.Add("Layout", 65);
+            _lvQueue.Columns.Add("Status", 85);
 
             _lvQueue.SelectedIndexChanged += LvQueue_SelectedIndexChanged;
             _lvQueue.ItemCheck += LvQueue_ItemCheck;
             _lvQueue.ItemDrag += LvQueue_ItemDrag;
-            _lvQueue.DragEnter += (s, e) => e.Effect = DragDropEffects.Move;
+            _lvQueue.DragEnter += delegate(object s, DragEventArgs e) { e.Effect = DragDropEffects.Move; };
             _lvQueue.DragOver += LvQueue_DragOver;
             _lvQueue.DragDrop += LvQueue_DragDrop;
 
             pnlQueue.Controls.Add(_lvQueue);
+            pnlQueue.Controls.Add(_pnlSmartAdvisor);
             pnlQueue.Controls.Add(lblQueueHeader);
             _split.Panel1.Controls.Add(pnlQueue);
 
-            // RIGHT PANEL: PREVIEW & CUSTOM SETTINGS
+            // RIGHT PANEL: PREVIEW & ADOBE ACROBAT STYLE SETTINGS
             Panel pnlRight = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
 
             Label lblPreviewHeader = new Label
             {
-                Text = "DOCUMENT PREVIEW & CUSTOM SETTINGS",
+                Text = "DOCUMENT PREVIEW & PAGE HANDLING",
                 Font = new Font("Segoe UI", 8F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(100, 116, 139),
                 Dock = DockStyle.Top,
-                Height = 28,
+                Height = 26,
                 Padding = new Padding(10, 6, 0, 0)
             };
 
-            // Preview Navigation Bar (FlowLayout so it never clips)
             FlowLayoutPanel pnlPreviewBar = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
-                Height = 38,
+                Height = 36,
                 WrapContents = false,
                 BackColor = Color.FromArgb(248, 250, 252),
-                Padding = new Padding(6, 4, 6, 4)
+                Padding = new Padding(6, 3, 6, 3)
             };
 
-            _btnPrevPage = CreateModernButton("◄ Prev", Color.White, Color.FromArgb(51, 65, 85), 0, 0, 65, 28);
-            _btnPrevPage.Click += (s, e) => ChangePreviewPage(-1);
+            _btnPrevPage = CreateModernButton("◄ Prev", Color.White, Color.FromArgb(51, 65, 85), 0, 0, 65, 26);
+            _btnPrevPage.Click += delegate { ChangePreviewPage(-1); };
 
             _lblPreviewMeta = new Label
             {
@@ -341,18 +417,17 @@ namespace PrintPulse
                 TextAlign = ContentAlignment.MiddleCenter
             };
 
-            _btnNextPage = CreateModernButton("Next ►", Color.White, Color.FromArgb(51, 65, 85), 0, 0, 65, 28);
-            _btnNextPage.Click += (s, e) => ChangePreviewPage(1);
+            _btnNextPage = CreateModernButton("Next ►", Color.White, Color.FromArgb(51, 65, 85), 0, 0, 65, 26);
+            _btnNextPage.Click += delegate { ChangePreviewPage(1); };
 
-            _btnRotate = CreateModernButton("⟲ Rotate 90°", Color.White, Color.FromArgb(79, 70, 229), 0, 0, 95, 28);
-            _btnRotate.Click += (s, e) => RotateCurrentDocument();
+            _btnRotate = CreateModernButton("⟲ Rotate 90°", Color.White, Color.FromArgb(79, 70, 229), 0, 0, 95, 26);
+            _btnRotate.Click += delegate { RotateCurrentDocument(); };
 
             pnlPreviewBar.Controls.Add(_btnPrevPage);
             pnlPreviewBar.Controls.Add(_lblPreviewMeta);
             pnlPreviewBar.Controls.Add(_btnNextPage);
             pnlPreviewBar.Controls.Add(_btnRotate);
 
-            // Document View Box
             _pbPreview = new PictureBox
             {
                 Dock = DockStyle.Fill,
@@ -360,189 +435,370 @@ namespace PrintPulse
                 SizeMode = PictureBoxSizeMode.CenterImage
             };
 
-            // Responsive Settings Panel (TableLayout to ensure zero clipping!)
+            // Adobe Acrobat Style Settings Panel
             Panel pnlSettingsWrapper = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 150,
+                Height = 255,
                 BackColor = Color.FromArgb(250, 252, 255),
-                Padding = new Padding(8, 6, 8, 6)
+                Padding = new Padding(10, 6, 10, 6),
+                AutoScroll = true
             };
 
-            Label lblSettingsTitle = new Label
-            {
-                Text = "SETTINGS FOR SELECTED ITEM",
-                Font = new Font("Segoe UI", 8F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(79, 70, 229),
-                Dock = DockStyle.Top,
-                Height = 20
-            };
-
-            TableLayoutPanel tableSettings = new TableLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                Height = 76,
-                ColumnCount = 4,
-                RowCount = 2,
-                BackColor = Color.Transparent
-            };
-            tableSettings.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 55));
-            tableSettings.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            tableSettings.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 55));
-            tableSettings.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-
-            // Row 0
-            Label lblRange = new Label { Text = "Pages:", AutoSize = true, Margin = new Padding(0, 6, 0, 0) };
-            _txtPageRange = new TextBox { Text = "All", Dock = DockStyle.Fill };
-            _txtPageRange.TextChanged += (s, e) => UpdateSelectedSettings();
-
-            Label lblCopies = new Label { Text = "Copies:", AutoSize = true, Margin = new Padding(4, 6, 0, 0) };
-            _numCopies = new NumericUpDown { Minimum = 1, Maximum = 99, Value = 1, Dock = DockStyle.Fill };
-            _numCopies.ValueChanged += (s, e) => UpdateSelectedSettings();
-
-            tableSettings.Controls.Add(lblRange, 0, 0);
-            tableSettings.Controls.Add(_txtPageRange, 1, 0);
-            tableSettings.Controls.Add(lblCopies, 2, 0);
-            tableSettings.Controls.Add(_numCopies, 3, 0);
-
-            // Row 1
-            Label lblDuplex = new Label { Text = "Duplex:", AutoSize = true, Margin = new Padding(0, 6, 0, 0) };
-            _cbDuplexMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
-            _cbDuplexMode.Items.AddRange(new object[] { "1-Sided", "2-Sided (Long)", "2-Sided (Short)" });
-            _cbDuplexMode.SelectedIndex = 0;
-            _cbDuplexMode.SelectedIndexChanged += (s, e) => UpdateSelectedSettings();
-
-            Label lblColor = new Label { Text = "Color:", AutoSize = true, Margin = new Padding(4, 6, 0, 0) };
-            _cbColorMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
-            _cbColorMode.Items.AddRange(new object[] { "B&W", "Color" });
-            _cbColorMode.SelectedIndex = 0;
-            _cbColorMode.SelectedIndexChanged += (s, e) => UpdateSelectedSettings();
-
-            tableSettings.Controls.Add(lblDuplex, 0, 1);
-            tableSettings.Controls.Add(_cbDuplexMode, 1, 1);
-            tableSettings.Controls.Add(lblColor, 2, 1);
-            tableSettings.Controls.Add(_cbColorMode, 3, 1);
-
-            // Row 2: Layout & Apply Button
-            FlowLayoutPanel flowSettingsBottom = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Bottom,
-                Height = 38,
-                WrapContents = false,
-                Padding = new Padding(0, 4, 0, 0),
-                BackColor = Color.Transparent
-            };
-
-            Label lblNUp = new Label { Text = "Layout:", AutoSize = true, Margin = new Padding(0, 6, 4, 0) };
-            _cbNUp = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 115 };
-            _cbNUp.Items.AddRange(new object[] { "1 Page / Sheet", "2 Pages / Sheet", "4 Pages / Sheet" });
-            _cbNUp.SelectedIndex = 0;
-            _cbNUp.SelectedIndexChanged += (s, e) => UpdateSelectedSettings();
-
-            Button btnApplyAll = CreateModernButton("Apply to All Items in Queue", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 0, 0, 185, 28);
-            btnApplyAll.Click += (s, e) => ApplySettingsToAll();
-
-            flowSettingsBottom.Controls.Add(lblNUp);
-            flowSettingsBottom.Controls.Add(_cbNUp);
-            flowSettingsBottom.Controls.Add(btnApplyAll);
-
-            pnlSettingsWrapper.Controls.Add(flowSettingsBottom);
-            pnlSettingsWrapper.Controls.Add(tableSettings);
-            pnlSettingsWrapper.Controls.Add(lblSettingsTitle);
+            BuildAdobeSettingsControls(pnlSettingsWrapper);
 
             pnlRight.Controls.Add(_pbPreview);
+            pnlRight.Controls.Add(pnlSettingsWrapper);
             pnlRight.Controls.Add(pnlPreviewBar);
             pnlRight.Controls.Add(lblPreviewHeader);
-            pnlRight.Controls.Add(pnlSettingsWrapper);
             _split.Panel2.Controls.Add(pnlRight);
 
-            // Assemble main form
             this.Controls.Add(_split);
-            this.Controls.Add(topBar);
             this.Controls.Add(bottomBar);
-
-            this.Shown += (s, e) => SetProportionalSplit();
+            this.Controls.Add(topBar);
         }
 
-        private void MainForm_Resize(object sender, EventArgs e)
+        private void BuildAdobeSettingsControls(Panel container)
         {
-            SetProportionalSplit();
-        }
-
-        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
-        {
-            if (_controller != null && _controller.IsRunning)
+            TableLayoutPanel tlp = new TableLayoutPanel
             {
-                if (MessageBox.Show("A batch print job is currently in progress.\nAre you sure you want to exit and abort the remaining queue?",
-                    "PrintPulse - Confirm Exit", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.No)
+                Dock = DockStyle.Top,
+                ColumnCount = 2,
+                RowCount = 5,
+                Height = 210,
+                BackColor = Color.Transparent
+            };
+            tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+
+            // Section 1: Pages to Print (Left Col)
+            Panel pnlPages = new Panel { Dock = DockStyle.Fill, Padding = new Padding(2) };
+            Label lblPTP = new Label { Text = "Pages to Print", Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Color.FromArgb(15, 23, 42), Location = new Point(0, 0), AutoSize = true };
+            _rbPagesAll = new RadioButton { Text = "All", Location = new Point(2, 20), AutoSize = true, Checked = true };
+            _rbPagesCurrent = new RadioButton { Text = "Current", Location = new Point(50, 20), AutoSize = true };
+            _rbPagesCustom = new RadioButton { Text = "Pages:", Location = new Point(120, 20), AutoSize = true };
+
+            _txtCustomPages = new TextBox { Location = new Point(180, 18), Size = new Size(70, 22), Text = "1" };
+            _txtCustomPages.TextChanged += delegate { if (!_isUpdatingInputs) { _rbPagesCustom.Checked = true; UpdateSelectedSettings(); } };
+
+            _rbPagesAll.CheckedChanged += delegate { if (!_isUpdatingInputs && _rbPagesAll.Checked) UpdateSelectedSettings(); };
+            _rbPagesCurrent.CheckedChanged += delegate { if (!_isUpdatingInputs && _rbPagesCurrent.Checked) UpdateSelectedSettings(); };
+            _rbPagesCustom.CheckedChanged += delegate { if (!_isUpdatingInputs && _rbPagesCustom.Checked) UpdateSelectedSettings(); };
+
+            _cbPageSubset = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(2, 45), Size = new Size(130, 24), Font = new Font("Segoe UI", 8.5f) };
+            _cbPageSubset.Items.AddRange(new object[] { "All in Range", "Odd Pages Only", "Even Pages Only" });
+            _cbPageSubset.SelectedIndex = 0;
+            _cbPageSubset.SelectedIndexChanged += delegate { if (!_isUpdatingInputs) UpdateSelectedSettings(); };
+
+            _chkReverseOrder = new CheckBox { Text = "Reverse Order", Location = new Point(145, 47), AutoSize = true, Font = new Font("Segoe UI", 8.5f) };
+            _chkReverseOrder.CheckedChanged += delegate { if (!_isUpdatingInputs) UpdateSelectedSettings(); };
+
+            pnlPages.Controls.Add(lblPTP);
+            pnlPages.Controls.Add(_rbPagesAll);
+            pnlPages.Controls.Add(_rbPagesCurrent);
+            pnlPages.Controls.Add(_rbPagesCustom);
+            pnlPages.Controls.Add(_txtCustomPages);
+            pnlPages.Controls.Add(_cbPageSubset);
+            pnlPages.Controls.Add(_chkReverseOrder);
+            tlp.Controls.Add(pnlPages, 0, 0);
+
+            // Section 2: Copies & Color (Right Col)
+            Panel pnlCopiesColor = new Panel { Dock = DockStyle.Fill, Padding = new Padding(2) };
+            Label lblCopies = new Label { Text = "Copies:", Location = new Point(0, 5), AutoSize = true, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) };
+            _numCopies = new NumericUpDown { Location = new Point(55, 3), Size = new Size(55, 22), Minimum = 1, Maximum = 99, Value = 1 };
+            _numCopies.ValueChanged += delegate { if (!_isUpdatingInputs) UpdateSelectedSettings(); };
+
+            _cbColorMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(125, 3), Size = new Size(95, 24), Font = new Font("Segoe UI", 8.5f) };
+            _cbColorMode.Items.AddRange(new object[] { "Grayscale (B&W)", "Color" });
+            _cbColorMode.SelectedIndex = 0;
+            _cbColorMode.SelectedIndexChanged += delegate { if (!_isUpdatingInputs) UpdateSelectedSettings(); };
+
+            _chkTonerSaver = new CheckBox { Text = "Save Ink / Toner", Location = new Point(5, 45), AutoSize = true, Font = new Font("Segoe UI", 8.5f) };
+            _chkTonerSaver.CheckedChanged += delegate { if (!_isUpdatingInputs) UpdateSelectedSettings(); };
+
+            pnlCopiesColor.Controls.Add(lblCopies);
+            pnlCopiesColor.Controls.Add(_numCopies);
+            pnlCopiesColor.Controls.Add(_cbColorMode);
+            pnlCopiesColor.Controls.Add(_chkTonerSaver);
+            tlp.Controls.Add(pnlCopiesColor, 1, 0);
+
+            // Section 3: Page Sizing & Handling (Left Col)
+            Panel pnlSizing = new Panel { Dock = DockStyle.Fill, Padding = new Padding(2) };
+            Label lblSize = new Label { Text = "Page Sizing & Handling", Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), Location = new Point(0, 0), AutoSize = true };
+            _rbScaleFit = new RadioButton { Text = "Fit", Location = new Point(2, 20), AutoSize = true, Checked = true };
+            _rbScaleActual = new RadioButton { Text = "Actual size", Location = new Point(50, 20), AutoSize = true };
+            _rbScaleShrink = new RadioButton { Text = "Shrink oversized", Location = new Point(135, 20), AutoSize = true };
+
+            _rbScaleFit.CheckedChanged += delegate { if (!_isUpdatingInputs && _rbScaleFit.Checked) UpdateSelectedSettings(); };
+            _rbScaleActual.CheckedChanged += delegate { if (!_isUpdatingInputs && _rbScaleActual.Checked) UpdateSelectedSettings(); };
+            _rbScaleShrink.CheckedChanged += delegate { if (!_isUpdatingInputs && _rbScaleShrink.Checked) UpdateSelectedSettings(); };
+
+            _rbScaleCustom = new RadioButton { Text = "Custom Scale:", Location = new Point(2, 45), AutoSize = true };
+            _numCustomScale = new NumericUpDown { Location = new Point(105, 44), Size = new Size(55, 22), Minimum = 25, Maximum = 400, Value = 100 };
+            _rbScaleCustom.CheckedChanged += delegate { if (!_isUpdatingInputs && _rbScaleCustom.Checked) UpdateSelectedSettings(); };
+            _numCustomScale.ValueChanged += delegate { if (!_isUpdatingInputs) { _rbScaleCustom.Checked = true; UpdateSelectedSettings(); } };
+
+            pnlSizing.Controls.Add(lblSize);
+            pnlSizing.Controls.Add(_rbScaleFit);
+            pnlSizing.Controls.Add(_rbScaleActual);
+            pnlSizing.Controls.Add(_rbScaleShrink);
+            pnlSizing.Controls.Add(_rbScaleCustom);
+            pnlSizing.Controls.Add(_numCustomScale);
+            tlp.Controls.Add(pnlSizing, 0, 1);
+
+            // Section 4: Layout & Duplex & Orientation (Right Col)
+            Panel pnlLayout = new Panel { Dock = DockStyle.Fill, Padding = new Padding(2) };
+            Label lblLay = new Label { Text = "Layout:", Location = new Point(0, 4), AutoSize = true, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) };
+            _cbLayoutMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(55, 2), Size = new Size(170, 24), Font = new Font("Segoe UI", 8.5f) };
+            _cbLayoutMode.Items.AddRange(new object[] { "1-Up (Single Page)", "2-Up (2 per Sheet)", "4-Up (4 per Sheet)", "Booklet (Folded Brochure)" });
+            _cbLayoutMode.SelectedIndex = 0;
+            _cbLayoutMode.SelectedIndexChanged += delegate { if (!_isUpdatingInputs) UpdateSelectedSettings(); };
+
+            Label lblDup = new Label { Text = "Duplex:", Location = new Point(0, 32), AutoSize = true, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) };
+            _cbDuplexMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(55, 30), Size = new Size(170, 24), Font = new Font("Segoe UI", 8.5f) };
+            _cbDuplexMode.Items.AddRange(new object[] { "1-Sided (Simplex)", "2-Sided (Flip Long Edge)", "2-Sided (Flip Short Edge)" });
+            _cbDuplexMode.SelectedIndex = 0;
+            _cbDuplexMode.SelectedIndexChanged += delegate { if (!_isUpdatingInputs) UpdateSelectedSettings(); };
+
+            pnlLayout.Controls.Add(lblLay);
+            pnlLayout.Controls.Add(_cbLayoutMode);
+            pnlLayout.Controls.Add(lblDup);
+            pnlLayout.Controls.Add(_cbDuplexMode);
+            tlp.Controls.Add(pnlLayout, 1, 1);
+
+            // Section 5: Orientation & Tray Selection (Row 2)
+            Panel pnlOrient = new Panel { Dock = DockStyle.Fill, Padding = new Padding(2) };
+            Label lblOr = new Label { Text = "Orientation:", Location = new Point(0, 5), AutoSize = true, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) };
+            _rbOrientAuto = new RadioButton { Text = "Auto", Location = new Point(80, 4), AutoSize = true, Checked = true };
+            _rbOrientPortrait = new RadioButton { Text = "Portrait", Location = new Point(135, 4), AutoSize = true };
+            _rbOrientLandscape = new RadioButton { Text = "Landscape", Location = new Point(200, 4), AutoSize = true };
+
+            _rbOrientAuto.CheckedChanged += delegate { if (!_isUpdatingInputs && _rbOrientAuto.Checked) UpdateSelectedSettings(); };
+            _rbOrientPortrait.CheckedChanged += delegate { if (!_isUpdatingInputs && _rbOrientPortrait.Checked) UpdateSelectedSettings(); };
+            _rbOrientLandscape.CheckedChanged += delegate { if (!_isUpdatingInputs && _rbOrientLandscape.Checked) UpdateSelectedSettings(); };
+
+            pnlOrient.Controls.Add(lblOr);
+            pnlOrient.Controls.Add(_rbOrientAuto);
+            pnlOrient.Controls.Add(_rbOrientPortrait);
+            pnlOrient.Controls.Add(_rbOrientLandscape);
+            tlp.Controls.Add(pnlOrient, 0, 2);
+
+            Panel pnlTray = new Panel { Dock = DockStyle.Fill, Padding = new Padding(2) };
+            Label lblTr = new Label { Text = "Paper Tray:", Location = new Point(0, 5), AutoSize = true, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) };
+            _cbPaperTray = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(75, 2), Size = new Size(150, 24), Font = new Font("Segoe UI", 8.5f) };
+            _cbPaperTray.Items.Add("Auto / Default");
+            _cbPaperTray.SelectedIndex = 0;
+            _cbPaperTray.SelectedIndexChanged += delegate { if (!_isUpdatingInputs) UpdateSelectedSettings(); };
+
+            pnlTray.Controls.Add(lblTr);
+            pnlTray.Controls.Add(_cbPaperTray);
+            tlp.Controls.Add(pnlTray, 1, 2);
+
+            container.Controls.Add(tlp);
+
+            // Apply All button at bottom of settings
+            Button btnApplyAll = CreateModernButton("Apply Selected Settings to All Queued Files", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 10, 220, 280, 28);
+            btnApplyAll.Click += delegate { ApplySettingsToAll(); };
+            container.Controls.Add(btnApplyAll);
+        }
+
+        private void RestorePreviousSession()
+        {
+            List<PrintJobItem> restored = SessionManager.RestoreSession();
+            if (restored != null && restored.Count > 0)
+            {
+                _queue.AddRange(restored);
+                RefreshQueueListView();
+                UpdateSummaryMetrics();
+                _lblStatusText.Text = string.Format("Restored {0} files from previous session.", restored.Count);
+                if (_queue.Count > 0)
                 {
-                    e.Cancel = true;
-                    return;
+                    _lvQueue.Items[0].Selected = true;
                 }
-                _controller.RequestCancel();
-            }
-
-            if (_pbPreview.Image != null)
-            {
-                _pbPreview.Image.Dispose();
-                _pbPreview.Image = null;
             }
         }
 
-        private void SetProportionalSplit()
+        private void CheckSmartAdvisor(PrintJobItem item)
         {
-            try
+            if (item == null || _cbPrinters.SelectedItem == null)
             {
-                if (_split != null && _split.Width > 200)
+                _pnlSmartAdvisor.Visible = false;
+                return;
+            }
+
+            NativeSpooler.PrinterDevice dev = _cbPrinters.SelectedItem as NativeSpooler.PrinterDevice;
+            string printerName = (dev != null) ? dev.Name : string.Empty;
+
+            // 1. Simplex printer check
+            if (!string.IsNullOrEmpty(printerName) && !NativeSpooler.CanPrinterDuplex(printerName) && item.TotalPages > 1)
+            {
+                _lblAdvisorText.Text = "💡 Printer is single-sided: Enable '2-Sided' to use the interactive Manual Duplex Assistant.";
+                _advisorApplyAction = delegate
                 {
-                    int targetDistance = (int)(_split.Width * 0.52);
-                    if (targetDistance > 100 && targetDistance < _split.Width - 100)
+                    _cbDuplexMode.SelectedIndex = 1; // DuplexLong
+                    UpdateSelectedSettings();
+                };
+                _pnlSmartAdvisor.Visible = true;
+                return;
+            }
+
+            // 2. High page count -> recommend 2-Up
+            if (item.TotalPages >= 20 && item.LayoutMode == PageLayoutMode.OneUp)
+            {
+                _lblAdvisorText.Text = string.Format("💡 {0} pages detected: Enable 2-Up layout to save {1} sheets of paper.", item.TotalPages, (int)Math.Ceiling(item.TotalPages / 2.0));
+                _advisorApplyAction = delegate
+                {
+                    _cbLayoutMode.SelectedIndex = 1; // 2-Up
+                    UpdateSelectedSettings();
+                };
+                _pnlSmartAdvisor.Visible = true;
+                return;
+            }
+
+            // 3. Document separator recommendation
+            if (_queue.Count > 3 && AdvancedOptionsForm.CurrentSlipSheetMode == SlipSheetMode.None)
+            {
+                _lblAdvisorText.Text = "💡 Multiple files queued: Enable Slip-Sheet Separators so jobs don't mix in output tray.";
+                _advisorApplyAction = delegate
+                {
+                    AdvancedOptionsForm.CurrentSlipSheetMode = SlipSheetMode.DetailedSlip;
+                    MessageBox.Show("Document separator slips enabled!", "PrintPulse", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                };
+                _pnlSmartAdvisor.Visible = true;
+                return;
+            }
+
+            _pnlSmartAdvisor.Visible = false;
+        }
+
+        private void WatchService_FileDropped(string filePath)
+        {
+            this.BeginInvoke(new Action(() =>
+            {
+                AddSingleFile(filePath);
+                SessionManager.SaveSession(_queue);
+                _lblStatusText.Text = "Watch Folder: Automatically added " + Path.GetFileName(filePath);
+            }));
+        }
+
+        private void OpenAdvancedOptions()
+        {
+            AdvancedOptionsForm aof = new AdvancedOptionsForm(this);
+            aof.ShowDialog(this);
+        }
+
+        public void ApplyPresetToQueue(PageScalingMode scaling, ColorPrintMode color, DuplexPrintMode duplex, PageLayoutMode layout, bool tonerSaver)
+        {
+            foreach (var item in _queue)
+            {
+                item.Scaling = scaling;
+                item.ColorMode = color;
+                item.DuplexMode = duplex;
+                item.LayoutMode = layout;
+                item.TonerSaver = tonerSaver;
+            }
+            if (_selectedItem != null) LoadItemPropertiesToInputs(_selectedItem);
+            RefreshQueueListView();
+            UpdateSummaryMetrics();
+            SessionManager.SaveSession(_queue);
+        }
+
+        public void ApplyGlobalBlankPageSetting(bool skipBlank)
+        {
+            foreach (var item in _queue)
+            {
+                item.SkipBlankPages = skipBlank;
+            }
+            SessionManager.SaveSession(_queue);
+        }
+
+        public void SortQueue(SortMode mode)
+        {
+            if (_queue.Count <= 1) return;
+            switch (mode)
+            {
+                case SortMode.Name:
+                    _queue.Sort((a, b) => string.Compare(a.FileName, b.FileName, StringComparison.OrdinalIgnoreCase));
+                    break;
+                case SortMode.PageCount:
+                    _queue.Sort((a, b) => a.TotalPages.CompareTo(b.TotalPages));
+                    break;
+                case SortMode.FileType:
+                    _queue.Sort((a, b) => string.Compare(Path.GetExtension(a.FilePath), Path.GetExtension(b.FilePath), StringComparison.OrdinalIgnoreCase));
+                    break;
+                case SortMode.FileSize:
+                    _queue.Sort((a, b) => a.FileSizeBytes.CompareTo(b.FileSizeBytes));
+                    break;
+            }
+            RefreshQueueListView();
+            SessionManager.SaveSession(_queue);
+        }
+
+        public void TriggerMergedPdfExport()
+        {
+            if (_queue.Count == 0)
+            {
+                MessageBox.Show("Please add files to the queue before exporting.", "Empty Queue", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            using (SaveFileDialog sfd = new SaveFileDialog
+            {
+                Filter = "PDF Document (*.pdf)|*.pdf",
+                FileName = "PrintPulse_Merged_Batch_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".pdf",
+                Title = "Export Batch as Merged PDF"
+            })
+            {
+                if (sfd.ShowDialog(this) == DialogResult.OK)
+                {
+                    _lblStatusText.Text = "Generating consolidated PDF document...";
+                    string err;
+                    bool ok = DocumentRenderer.ExportBatchToPdf(_queue, sfd.FileName, out err);
+                    if (ok)
                     {
-                        _split.SplitterDistance = targetDistance;
+                        _lblStatusText.Text = "PDF exported successfully: " + Path.GetFileName(sfd.FileName);
+                        if (MessageBox.Show("PDF export completed successfully!\n\nOpen file now?", "PrintPulse", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                        {
+                            try { System.Diagnostics.Process.Start(sfd.FileName); }
+                            catch { }
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("Failed to export PDF: " + err, "Export Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                 }
             }
-            catch { }
         }
 
-        private Button CreateModernButton(string text, Color bg, Color fg, int x, int y, int w, int h = 32)
+        private bool Controller_OnRequestManualDuplexFlip(string docName, int step, int totalSheets)
         {
-            Button btn = new Button
+            bool userConfirmed = false;
+            this.Invoke(new Action(() =>
             {
-                Text = text,
-                Location = new Point(x, y),
-                Size = new Size(w, h),
-                BackColor = bg,
-                ForeColor = fg,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand,
-                Margin = new Padding(2, 1, 2, 1)
-            };
-            btn.FlatAppearance.BorderSize = 0;
-            return btn;
+                ManualDuplexWizard wizard = new ManualDuplexWizard(docName, step, totalSheets);
+                userConfirmed = (wizard.ShowDialog(this) == DialogResult.OK);
+            }));
+            return userConfirmed;
         }
 
-        private void OpenFeedback()
-        {
-            FeedbackForm fb = new FeedbackForm();
-            fb.ShowDialog(this);
-        }
-
+        // Printer Management
         private void RefreshPrinterList()
         {
             _cbPrinters.Items.Clear();
             List<NativeSpooler.PrinterDevice> printers = NativeSpooler.GetInstalledPrinters();
-            int defaultIndex = 0;
+            NativeSpooler.PrinterDevice defaultPrinter = null;
 
-            for (int i = 0; i < printers.Count; i++)
+            foreach (var p in printers)
             {
-                _cbPrinters.Items.Add(printers[i]);
-                if (printers[i].IsDefault)
-                    defaultIndex = i;
+                _cbPrinters.Items.Add(p);
+                if (p.IsDefault) defaultPrinter = p;
             }
 
-            if (_cbPrinters.Items.Count > 0)
-                _cbPrinters.SelectedIndex = defaultIndex;
+            if (defaultPrinter != null)
+                _cbPrinters.SelectedItem = defaultPrinter;
+            else if (_cbPrinters.Items.Count > 0)
+                _cbPrinters.SelectedIndex = 0;
 
             UpdateSelectedPrinterStatus();
         }
@@ -550,46 +806,38 @@ namespace PrintPulse
         private void UpdateSelectedPrinterStatus()
         {
             NativeSpooler.PrinterDevice dev = _cbPrinters.SelectedItem as NativeSpooler.PrinterDevice;
-            if (dev != null)
+            if (dev == null)
             {
-                uint status = NativeSpooler.GetPrinterStatus(dev.Name);
-                dev.Status = status;
-                _lblPrinterStatus.Text = dev.StatusDescription;
-                if (status == 0)
-                    _lblPrinterStatus.ForeColor = Color.FromArgb(16, 185, 129);
-                else
-                    _lblPrinterStatus.ForeColor = Color.FromArgb(225, 29, 72);
+                _lblPrinterStatus.Text = "No printer";
+                _lblPrinterStatus.ForeColor = Color.FromArgb(225, 29, 72);
+                return;
             }
+
+            uint status = NativeSpooler.GetPrinterStatus(dev.Name);
+            if (status == 0)
+            {
+                _lblPrinterStatus.Text = "● Ready";
+                _lblPrinterStatus.ForeColor = Color.FromArgb(16, 185, 129);
+            }
+            else
+            {
+                _lblPrinterStatus.Text = "● " + NativeSpooler.FormatStatusFlags(status);
+                _lblPrinterStatus.ForeColor = Color.FromArgb(245, 158, 11);
+            }
+
+            // Refresh available paper trays
+            if (_cbPaperTray != null)
+            {
+                _cbPaperTray.Items.Clear();
+                List<string> sources = NativeSpooler.GetPaperSources(dev.Name);
+                foreach (string src in sources) _cbPaperTray.Items.Add(src);
+                if (_cbPaperTray.Items.Count > 0) _cbPaperTray.SelectedIndex = 0;
+            }
+
+            CheckSmartAdvisor(_selectedItem);
         }
 
-        // File Ingestion
-        private void AddFilesDialog()
-        {
-            OpenFileDialog ofd = new OpenFileDialog
-            {
-                Multiselect = true,
-                Title = "Select Documents and Images to Batch Print",
-                Filter = "All Supported Files|*.pdf;*.jpg;*.jpeg;*.png;*.bmp;*.tiff;*.tif;*.txt;*.csv;*.rtf|PDF Documents (*.pdf)|*.pdf|Image Files (*.jpg;*.png;*.bmp)|*.jpg;*.png;*.bmp|Text Files (*.txt;*.csv)|*.txt;*.csv|All Files (*.*)|*.*"
-            };
-            if (ofd.ShowDialog() == DialogResult.OK)
-            {
-                AddFilePaths(ofd.FileNames);
-            }
-        }
-
-        private void AddFolderDialog()
-        {
-            FolderBrowserDialog fbd = new FolderBrowserDialog
-            {
-                Description = "Select a folder containing documents to batch print"
-            };
-            if (fbd.ShowDialog() == DialogResult.OK)
-            {
-                string[] files = Directory.GetFiles(fbd.SelectedPath, "*.*", SearchOption.TopDirectoryOnly);
-                AddFilePaths(files);
-            }
-        }
-
+        // Drag & Drop & Queue Additions
         private void MainForm_DragEnter(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
@@ -598,32 +846,66 @@ namespace PrintPulse
 
         private void MainForm_DragDrop(object sender, DragEventArgs e)
         {
-            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+            AddFilesToQueue(files);
+        }
+
+        private void AddFilesDialog()
+        {
+            using (OpenFileDialog ofd = new OpenFileDialog
             {
-                string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                AddFilePaths(files);
+                Multiselect = true,
+                Title = "Select Documents to Batch Print",
+                Filter = "All Supported Files|*.pdf;*.jpg;*.jpeg;*.png;*.bmp;*.tiff;*.tif;*.docx;*.txt;*.csv;*.log;*.xml;*.html|PDF Files (*.pdf)|*.pdf|Image Files (*.jpg;*.png;*.bmp;*.tiff)|*.jpg;*.jpeg;*.png;*.bmp;*.tiff;*.tif|Office & Text Documents (*.docx;*.txt;*.csv)|*.docx;*.txt;*.csv;*.log;*.xml;*.html|All Files (*.*)|*.*"
+            })
+            {
+                if (ofd.ShowDialog(this) == DialogResult.OK)
+                {
+                    AddFilesToQueue(ofd.FileNames);
+                }
             }
         }
 
-        private void AddFilePaths(string[] filePaths)
+        private void AddFolderDialog()
         {
+            using (FolderBrowserDialog fbd = new FolderBrowserDialog { Description = "Select folder containing documents to batch print:" })
+            {
+                if (fbd.ShowDialog(this) == DialogResult.OK)
+                {
+                    string[] files = Directory.GetFiles(fbd.SelectedPath, "*.*", SearchOption.AllDirectories);
+                    AddFilesToQueue(files);
+                }
+            }
+        }
+
+        private void AddFilesToQueue(string[] filePaths)
+        {
+            if (filePaths == null || filePaths.Length == 0) return;
+
             foreach (string path in filePaths)
             {
-                if (Directory.Exists(path))
-                {
-                    AddFilePaths(Directory.GetFiles(path, "*.*", SearchOption.TopDirectoryOnly));
-                    continue;
-                }
-
-                if (!File.Exists(path)) continue;
-
-                PrintJobItem item = new PrintJobItem(path);
-                item.TotalPages = DocumentRenderer.InspectPageCount(item);
-                _queue.Add(item);
+                AddSingleFile(path);
             }
 
             RefreshQueueListView();
             UpdateSummaryMetrics();
+            SessionManager.SaveSession(_queue);
+
+            if (_selectedItem == null && _queue.Count > 0)
+            {
+                _lvQueue.Items[_queue.Count - 1].Selected = true;
+            }
+        }
+
+        private void AddSingleFile(string path)
+        {
+            if (!File.Exists(path)) return;
+            string ext = Path.GetExtension(path).ToLowerInvariant();
+            if (ext == ".exe" || ext == ".dll" || ext == ".zip" || ext == ".rar" || ext == ".7z") return;
+
+            PrintJobItem item = new PrintJobItem(path);
+            item.TotalPages = DocumentRenderer.InspectPageCount(item);
+            _queue.Add(item);
         }
 
         private void RefreshQueueListView()
@@ -636,19 +918,20 @@ namespace PrintPulse
                 PrintJobItem item = _queue[i];
                 ListViewItem lvi = new ListViewItem("");
                 lvi.Checked = item.IsEnabled;
-                lvi.Tag = item;
                 lvi.SubItems.Add((i + 1).ToString());
                 lvi.SubItems.Add(item.FileName);
                 lvi.SubItems.Add(item.TotalPages.ToString());
                 lvi.SubItems.Add(item.Copies.ToString());
                 lvi.SubItems.Add(item.ColorMode == ColorPrintMode.Color ? "Color" : "B&W");
-                lvi.SubItems.Add(item.DuplexMode == DuplexPrintMode.Simplex ? "1-Sided" : "2-Sided");
+                lvi.SubItems.Add(item.DuplexMode == DuplexPrintMode.Simplex ? "1-Sided" : (item.DuplexMode == DuplexPrintMode.DuplexLongEdge ? "2-Sided (Long)" : "2-Sided (Short)"));
+                lvi.SubItems.Add(item.LayoutMode == PageLayoutMode.OneUp ? "1-Up" : (item.LayoutMode == PageLayoutMode.TwoUp ? "2-Up" : (item.LayoutMode == PageLayoutMode.FourUp ? "4-Up" : "Booklet")));
                 lvi.SubItems.Add(item.Status.ToString());
+                lvi.Tag = item;
 
-                if (item.Status == PrintItemStatus.Completed)
+                if (item.Status == PrintItemStatus.Printing)
+                    lvi.BackColor = Color.FromArgb(238, 242, 255);
+                else if (item.Status == PrintItemStatus.Completed)
                     lvi.ForeColor = Color.FromArgb(22, 101, 52);
-                else if (item.Status == PrintItemStatus.Printing)
-                    lvi.ForeColor = Color.FromArgb(79, 70, 229);
                 else if (item.Status == PrintItemStatus.Error)
                     lvi.ForeColor = Color.FromArgb(225, 29, 72);
 
@@ -666,6 +949,7 @@ namespace PrintPulse
                 _currentPreviewPage = 1;
                 LoadItemPropertiesToInputs(_selectedItem);
                 RenderPreview();
+                CheckSmartAdvisor(_selectedItem);
             }
         }
 
@@ -674,11 +958,13 @@ namespace PrintPulse
             if (e.Index >= 0 && e.Index < _queue.Count)
             {
                 _queue[e.Index].IsEnabled = (e.NewValue == CheckState.Checked);
-                this.BeginInvoke(new Action(UpdateSummaryMetrics));
+                this.BeginInvoke(new Action(() => {
+                    UpdateSummaryMetrics();
+                    SessionManager.SaveSession(_queue);
+                }));
             }
         }
 
-        // Drag & Drop Queue Reordering
         private void LvQueue_ItemDrag(object sender, ItemDragEventArgs e)
         {
             if (_lvQueue.SelectedIndices.Count > 0)
@@ -710,6 +996,7 @@ namespace PrintPulse
                     RefreshQueueListView();
                     _lvQueue.Items[targetIndex].Selected = true;
                     UpdateSummaryMetrics();
+                    SessionManager.SaveSession(_queue);
                 }
             }
             _draggedItemIndex = -1;
@@ -730,6 +1017,7 @@ namespace PrintPulse
                 RefreshQueueListView();
                 _lvQueue.Items[newIndex].Selected = true;
                 _lvQueue.EnsureVisible(newIndex);
+                SessionManager.SaveSession(_queue);
             }
         }
 
@@ -744,6 +1032,8 @@ namespace PrintPulse
             if (_pbPreview.Image != null) _pbPreview.Image.Dispose();
             _pbPreview.Image = null;
             _lblPreviewMeta.Text = "No file selected";
+            _pnlSmartAdvisor.Visible = false;
+            SessionManager.SaveSession(_queue);
         }
 
         private void ClearQueue()
@@ -758,10 +1048,11 @@ namespace PrintPulse
                 if (_pbPreview.Image != null) _pbPreview.Image.Dispose();
                 _pbPreview.Image = null;
                 _lblPreviewMeta.Text = "No file selected";
+                _pnlSmartAdvisor.Visible = false;
+                SessionManager.ClearSession();
             }
         }
 
-        // Preview rendering
         private void RenderPreview()
         {
             if (_selectedItem == null) return;
@@ -781,7 +1072,9 @@ namespace PrintPulse
             if (newPage >= 1 && newPage <= _selectedItem.TotalPages)
             {
                 _currentPreviewPage = newPage;
+                _selectedItem.CurrentPreviewPage = newPage;
                 RenderPreview();
+                if (_rbPagesCurrent.Checked) UpdateSelectedSettings();
             }
         }
 
@@ -792,37 +1085,135 @@ namespace PrintPulse
             RenderPreview();
         }
 
-        // Properties bindings
         private void LoadItemPropertiesToInputs(PrintJobItem item)
         {
             if (item == null) return;
-            _txtPageRange.Text = item.PageRange;
+            _isUpdatingInputs = true;
+
+            // Copies
             _numCopies.Value = Math.Max(1, item.Copies);
-            _cbColorMode.SelectedIndex = (item.ColorMode == ColorPrintMode.Color) ? 1 : 0;
+
+            // Pages to Print
+            if (item.RangeMode == PageRangeMode.CurrentPage)
+                _rbPagesCurrent.Checked = true;
+            else if (item.RangeMode == PageRangeMode.CustomRange)
+            {
+                _rbPagesCustom.Checked = true;
+                _txtCustomPages.Text = item.PageRange;
+            }
+            else
+            {
+                _rbPagesAll.Checked = true;
+            }
+
+            _cbPageSubset.SelectedIndex = (int)item.Subset;
+            _chkReverseOrder.Checked = item.ReverseOrder;
+
+            // Sizing
+            if (item.Scaling == PageScalingMode.ActualSize) _rbScaleActual.Checked = true;
+            else if (item.Scaling == PageScalingMode.ShrinkOversized) _rbScaleShrink.Checked = true;
+            else if (item.Scaling == PageScalingMode.CustomScale)
+            {
+                _rbScaleCustom.Checked = true;
+                _numCustomScale.Value = item.CustomScalePercent > 0 ? item.CustomScalePercent : 100;
+            }
+            else _rbScaleFit.Checked = true;
+
+            // Layout
+            _cbLayoutMode.SelectedIndex = (int)item.LayoutMode;
+
+            // Duplex
             _cbDuplexMode.SelectedIndex = (int)item.DuplexMode;
-            _cbNUp.SelectedIndex = (item.NUp == 4) ? 2 : (item.NUp == 2 ? 1 : 0);
+
+            // Color & Toner
+            _cbColorMode.SelectedIndex = (item.ColorMode == ColorPrintMode.Color) ? 1 : 0;
+            _chkTonerSaver.Checked = item.TonerSaver;
+
+            // Orientation
+            if (item.Orientation == PageOrientationMode.Portrait) _rbOrientPortrait.Checked = true;
+            else if (item.Orientation == PageOrientationMode.Landscape) _rbOrientLandscape.Checked = true;
+            else _rbOrientAuto.Checked = true;
+
+            // Tray
+            if (!string.IsNullOrEmpty(item.PaperSourceTray))
+            {
+                int idx = _cbPaperTray.FindStringExact(item.PaperSourceTray);
+                _cbPaperTray.SelectedIndex = (idx >= 0) ? idx : 0;
+            }
+
+            _isUpdatingInputs = false;
         }
 
         private void UpdateSelectedSettings()
         {
-            if (_selectedItem == null) return;
-            _selectedItem.PageRange = _txtPageRange.Text;
-            _selectedItem.Copies = (int)_numCopies.Value;
-            _selectedItem.ColorMode = (_cbColorMode.SelectedIndex == 1) ? ColorPrintMode.Color : ColorPrintMode.Monochrome;
-            _selectedItem.DuplexMode = (DuplexPrintMode)_cbDuplexMode.SelectedIndex;
-            _selectedItem.NUp = (_cbNUp.SelectedIndex == 2) ? 4 : (_cbNUp.SelectedIndex == 1 ? 2 : 1);
+            if (_selectedItem == null || _isUpdatingInputs) return;
 
-            // Auto-update selected row in queue immediately without needing to drag!
+            // Copies
+            _selectedItem.Copies = (int)_numCopies.Value;
+
+            // Range
+            if (_rbPagesCurrent.Checked)
+            {
+                _selectedItem.RangeMode = PageRangeMode.CurrentPage;
+                _selectedItem.CurrentPreviewPage = _currentPreviewPage;
+            }
+            else if (_rbPagesCustom.Checked)
+            {
+                _selectedItem.RangeMode = PageRangeMode.CustomRange;
+                _selectedItem.PageRange = _txtCustomPages.Text;
+            }
+            else
+            {
+                _selectedItem.RangeMode = PageRangeMode.All;
+                _selectedItem.PageRange = "All";
+            }
+
+            _selectedItem.Subset = (PageSubset)_cbPageSubset.SelectedIndex;
+            _selectedItem.ReverseOrder = _chkReverseOrder.Checked;
+
+            // Sizing
+            if (_rbScaleActual.Checked) _selectedItem.Scaling = PageScalingMode.ActualSize;
+            else if (_rbScaleShrink.Checked) _selectedItem.Scaling = PageScalingMode.ShrinkOversized;
+            else if (_rbScaleCustom.Checked)
+            {
+                _selectedItem.Scaling = PageScalingMode.CustomScale;
+                _selectedItem.CustomScalePercent = (int)_numCustomScale.Value;
+            }
+            else _selectedItem.Scaling = PageScalingMode.Fit;
+
+            // Layout
+            _selectedItem.LayoutMode = (PageLayoutMode)_cbLayoutMode.SelectedIndex;
+            _selectedItem.NUp = (_selectedItem.LayoutMode == PageLayoutMode.FourUp) ? 4 : (_selectedItem.LayoutMode == PageLayoutMode.TwoUp ? 2 : 1);
+
+            // Duplex
+            _selectedItem.DuplexMode = (DuplexPrintMode)_cbDuplexMode.SelectedIndex;
+
+            // Color & Toner
+            _selectedItem.ColorMode = (_cbColorMode.SelectedIndex == 1) ? ColorPrintMode.Color : ColorPrintMode.Monochrome;
+            _selectedItem.TonerSaver = _chkTonerSaver.Checked;
+
+            // Orientation
+            if (_rbOrientPortrait.Checked) _selectedItem.Orientation = PageOrientationMode.Portrait;
+            else if (_rbOrientLandscape.Checked) _selectedItem.Orientation = PageOrientationMode.Landscape;
+            else _selectedItem.Orientation = PageOrientationMode.Auto;
+
+            // Tray
+            if (_cbPaperTray.SelectedItem != null)
+                _selectedItem.PaperSourceTray = _cbPaperTray.SelectedItem.ToString();
+
+            // Auto-update selected row in queue
             if (_lvQueue.SelectedItems.Count > 0)
             {
                 ListViewItem lvi = _lvQueue.SelectedItems[0];
                 lvi.SubItems[4].Text = _selectedItem.Copies.ToString();
                 lvi.SubItems[5].Text = (_selectedItem.ColorMode == ColorPrintMode.Color) ? "Color" : "B&W";
                 lvi.SubItems[6].Text = (_selectedItem.DuplexMode == DuplexPrintMode.Simplex) ? "1-Sided" : (_selectedItem.DuplexMode == DuplexPrintMode.DuplexLongEdge ? "2-Sided (Long)" : "2-Sided (Short)");
+                lvi.SubItems[7].Text = (_selectedItem.LayoutMode == PageLayoutMode.OneUp) ? "1-Up" : (_selectedItem.LayoutMode == PageLayoutMode.TwoUp ? "2-Up" : (_selectedItem.LayoutMode == PageLayoutMode.FourUp ? "4-Up" : "Booklet"));
             }
 
             UpdateSummaryMetrics();
             RenderPreview();
+            SessionManager.SaveSession(_queue);
         }
 
         private void ApplySettingsToAll()
@@ -830,15 +1221,25 @@ namespace PrintPulse
             if (_selectedItem == null) return;
             foreach (var item in _queue)
             {
-                item.PageRange = _txtPageRange.Text;
-                item.Copies = (int)_numCopies.Value;
-                item.ColorMode = (_cbColorMode.SelectedIndex == 1) ? ColorPrintMode.Color : ColorPrintMode.Monochrome;
-                item.DuplexMode = (DuplexPrintMode)_cbDuplexMode.SelectedIndex;
-                item.NUp = (_cbNUp.SelectedIndex == 2) ? 4 : (_cbNUp.SelectedIndex == 1 ? 2 : 1);
+                item.Copies = _selectedItem.Copies;
+                item.RangeMode = _selectedItem.RangeMode;
+                item.PageRange = _selectedItem.PageRange;
+                item.Subset = _selectedItem.Subset;
+                item.ReverseOrder = _selectedItem.ReverseOrder;
+                item.Scaling = _selectedItem.Scaling;
+                item.CustomScalePercent = _selectedItem.CustomScalePercent;
+                item.LayoutMode = _selectedItem.LayoutMode;
+                item.NUp = _selectedItem.NUp;
+                item.DuplexMode = _selectedItem.DuplexMode;
+                item.ColorMode = _selectedItem.ColorMode;
+                item.TonerSaver = _selectedItem.TonerSaver;
+                item.Orientation = _selectedItem.Orientation;
+                item.PaperSourceTray = _selectedItem.PaperSourceTray;
             }
             RefreshQueueListView();
             UpdateSummaryMetrics();
-            MessageBox.Show("Settings applied to all items in queue!", "Settings Applied", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            SessionManager.SaveSession(_queue);
+            MessageBox.Show("Selected settings applied to all items in queue!", "Settings Applied", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void UpdateSummaryMetrics()
@@ -860,7 +1261,6 @@ namespace PrintPulse
                 totalFiles, totalPages, totalSheets);
         }
 
-        // Batch Execution
         private void StartBatch()
         {
             if (_queue.Count == 0)
@@ -876,6 +1276,16 @@ namespace PrintPulse
             }
 
             NativeSpooler.PrinterDevice dev = (NativeSpooler.PrinterDevice)_cbPrinters.SelectedItem;
+
+            // Hardware Pre-flight Check
+            string hwWarning;
+            if (!NativeSpooler.CheckHardwarePreflight(dev.Name, out hwWarning) && !string.IsNullOrEmpty(hwWarning))
+            {
+                if (MessageBox.Show(hwWarning + "\n\nDo you want to proceed with printing anyway?", "Printer Hardware Pre-Check Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                {
+                    return;
+                }
+            }
 
             _btnStart.Enabled = false;
             _btnPause.Enabled = true;
@@ -919,7 +1329,12 @@ namespace PrintPulse
             }
         }
 
-        // Controller Event Handlers
+        private void OpenFeedback()
+        {
+            FeedbackForm ff = new FeedbackForm();
+            ff.ShowDialog(this);
+        }
+
         private void Controller_OnItemStarted(PrintJobItem item)
         {
             this.BeginInvoke(new Action(() =>
@@ -973,6 +1388,62 @@ namespace PrintPulse
                 RefreshQueueListView();
                 ShowReport();
             }));
+        }
+
+        private void MainForm_Resize(object sender, EventArgs e)
+        {
+            if (this.WindowState != FormWindowState.Minimized && _split != null)
+            {
+                int targetDistance = (int)(this.Width * 0.48);
+                if (targetDistance > _split.Panel1MinSize && targetDistance < (_split.Width - _split.Panel2MinSize))
+                {
+                    _split.SplitterDistance = targetDistance;
+                }
+            }
+        }
+
+        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (_controller != null && _controller.IsRunning)
+            {
+                if (MessageBox.Show("A batch print job is currently active.\nAre you sure you want to exit?", "Exit PrintPulse", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.No)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+                _controller.RequestCancel();
+            }
+
+            if (WatchService != null)
+            {
+                WatchService.Dispose();
+            }
+
+            SessionManager.SaveSession(_queue);
+
+            if (_pbPreview != null && _pbPreview.Image != null)
+            {
+                _pbPreview.Image.Dispose();
+                _pbPreview.Image = null;
+            }
+        }
+
+        private Button CreateModernButton(string text, Color bg, Color fg, int x, int y, int w, int h)
+        {
+            Button btn = new Button
+            {
+                Text = text,
+                Location = new Point(x, y),
+                Size = new Size(w, h),
+                BackColor = bg,
+                ForeColor = fg,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+                Cursor = Cursors.Hand
+            };
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.BorderColor = (bg == Color.White || bg == Color.FromArgb(241, 245, 249)) ? Color.FromArgb(203, 213, 225) : bg;
+            return btn;
         }
     }
 }

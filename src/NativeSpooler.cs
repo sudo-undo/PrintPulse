@@ -185,19 +185,7 @@ namespace PrintPulse
             {
                 get
                 {
-                    if (Status == 0) return "Ready";
-                    List<string> issues = new List<string>();
-                    if ((Status & (uint)PrinterStatusFlags.PRINTER_STATUS_PAPER_JAM) != 0) issues.Add("Paper Jam");
-                    if ((Status & (uint)PrinterStatusFlags.PRINTER_STATUS_PAPER_OUT) != 0) issues.Add("Out of Paper");
-                    if ((Status & (uint)PrinterStatusFlags.PRINTER_STATUS_OFFLINE) != 0) issues.Add("Offline");
-                    if ((Status & (uint)PrinterStatusFlags.PRINTER_STATUS_DOOR_OPEN) != 0) issues.Add("Door Open");
-                    if ((Status & (uint)PrinterStatusFlags.PRINTER_STATUS_NO_TONER) != 0) issues.Add("No Toner");
-                    if ((Status & (uint)PrinterStatusFlags.PRINTER_STATUS_TONER_LOW) != 0) issues.Add("Low Toner");
-                    if ((Status & (uint)PrinterStatusFlags.PRINTER_STATUS_USER_INTERVENTION) != 0) issues.Add("User Action Needed");
-                    if ((Status & (uint)PrinterStatusFlags.PRINTER_STATUS_PAUSED) != 0) issues.Add("Paused");
-                    if ((Status & (uint)PrinterStatusFlags.PRINTER_STATUS_BUSY) != 0) issues.Add("Busy");
-                    if ((Status & (uint)PrinterStatusFlags.PRINTER_STATUS_PRINTING) != 0) issues.Add("Printing");
-                    return issues.Count > 0 ? string.Join(", ", issues.ToArray()) : "Active / Status: " + Status;
+                    return FormatStatusFlags(Status);
                 }
             }
 
@@ -264,6 +252,23 @@ namespace PrintPulse
             return list;
         }
 
+        public static string FormatStatusFlags(uint status)
+        {
+            if (status == 0) return "Ready";
+            List<string> issues = new List<string>();
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_PAPER_JAM) != 0) issues.Add("Paper Jam");
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_PAPER_OUT) != 0) issues.Add("Out of Paper");
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_OFFLINE) != 0) issues.Add("Offline");
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_DOOR_OPEN) != 0) issues.Add("Door Open");
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_NO_TONER) != 0) issues.Add("No Toner");
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_TONER_LOW) != 0) issues.Add("Low Toner");
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_USER_INTERVENTION) != 0) issues.Add("User Action Needed");
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_PAUSED) != 0) issues.Add("Paused");
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_BUSY) != 0) issues.Add("Busy");
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_PRINTING) != 0) issues.Add("Printing");
+            return issues.Count > 0 ? string.Join(", ", issues.ToArray()) : "Active / Status: " + status;
+        }
+
         public static uint GetPrinterStatus(string printerName)
         {
             IntPtr hPrinter = IntPtr.Zero;
@@ -296,6 +301,85 @@ namespace PrintPulse
                     ClosePrinter(hPrinter);
             }
             return 0;
+        }
+
+        public static bool CheckHardwarePreflight(string printerName, out string warning)
+        {
+            warning = string.Empty;
+            uint status = GetPrinterStatus(printerName);
+
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_OFFLINE) != 0)
+            {
+                warning = "Printer is currently Offline. Check power and USB/network cables.";
+                return false;
+            }
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_DOOR_OPEN) != 0)
+            {
+                warning = "Printer cover/door is open. Please close it before printing.";
+                return false;
+            }
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_PAPER_OUT) != 0)
+            {
+                warning = "Printer is out of paper. Please load paper into the tray.";
+                return false;
+            }
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_PAPER_JAM) != 0)
+            {
+                warning = "Printer reports a paper jam. Please clear the paper path.";
+                return false;
+            }
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_NOT_AVAILABLE) != 0)
+            {
+                warning = "Printer is not available or not responding.";
+                return false;
+            }
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_ERROR) != 0)
+            {
+                warning = "Printer reports a hardware error state.";
+                return false;
+            }
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_NO_TONER) != 0)
+            {
+                warning = "Printer is out of ink/toner. Replace cartridge to proceed.";
+                return false;
+            }
+            if ((status & (uint)PrinterStatusFlags.PRINTER_STATUS_TONER_LOW) != 0)
+            {
+                warning = "Warning: Printer toner is low.";
+                // Warning only, can still proceed
+                return true;
+            }
+
+            return true;
+        }
+
+        public static bool CanPrinterDuplex(string printerName)
+        {
+            try
+            {
+                System.Drawing.Printing.PrinterSettings ps = new System.Drawing.Printing.PrinterSettings();
+                ps.PrinterName = printerName;
+                return ps.CanDuplex;
+            }
+            catch { return false; }
+        }
+
+        public static List<string> GetPaperSources(string printerName)
+        {
+            List<string> sources = new List<string>();
+            sources.Add("Auto / Default");
+            try
+            {
+                System.Drawing.Printing.PrinterSettings ps = new System.Drawing.Printing.PrinterSettings();
+                ps.PrinterName = printerName;
+                foreach (System.Drawing.Printing.PaperSource src in ps.PaperSources)
+                {
+                    if (!sources.Contains(src.SourceName))
+                        sources.Add(src.SourceName);
+                }
+            }
+            catch { }
+            return sources;
         }
 
         public static List<JOB_INFO_2> GetActiveJobs(string printerName)

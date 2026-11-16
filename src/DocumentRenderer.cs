@@ -611,7 +611,270 @@ namespace PrintPulse
             }
         }
 
-        public static Bitmap ApplyRotatedAndFiltered(Image source, int rotationDegrees, bool grayscale)
+        public static bool IsPageBlank(Bitmap bmp, float threshold)
+        {
+            if (bmp == null) return true;
+            try
+            {
+                int step = Math.Max(2, Math.Min(bmp.Width, bmp.Height) / 80);
+                int total = 0;
+                int white = 0;
+
+                for (int y = 0; y < bmp.Height; y += step)
+                {
+                    for (int x = 0; x < bmp.Width; x += step)
+                    {
+                        Color c = bmp.GetPixel(x, y);
+                        total++;
+                        if (c.A < 10 || (c.R > 240 && c.G > 240 && c.B > 240))
+                            white++;
+                    }
+                }
+                if (total == 0) return true;
+                return (white / (float)total) >= threshold;
+            }
+            catch { return false; }
+        }
+
+        public static void DrawNUp(Graphics g, Rectangle bounds, List<Bitmap> pages, PageLayoutMode layout, bool drawBorder)
+        {
+            if (pages == null || pages.Count == 0) return;
+
+            if (layout == PageLayoutMode.TwoUp)
+            {
+                bool landscape = bounds.Width > bounds.Height;
+                int w1 = landscape ? bounds.Width / 2 : bounds.Width;
+                int h1 = landscape ? bounds.Height : bounds.Height / 2;
+
+                Rectangle r1 = new Rectangle(bounds.Left, bounds.Top, w1, h1);
+                Rectangle r2 = landscape ? new Rectangle(bounds.Left + w1, bounds.Top, w1, h1) : new Rectangle(bounds.Left, bounds.Top + h1, w1, h1);
+
+                if (pages.Count > 0 && pages[0] != null)
+                {
+                    DrawImageFittedInRect(g, pages[0], r1);
+                    if (drawBorder) using (Pen p = new Pen(Color.FromArgb(203, 213, 225))) g.DrawRectangle(p, r1);
+                }
+                if (pages.Count > 1 && pages[1] != null)
+                {
+                    DrawImageFittedInRect(g, pages[1], r2);
+                    if (drawBorder) using (Pen p = new Pen(Color.FromArgb(203, 213, 225))) g.DrawRectangle(p, r2);
+                }
+            }
+            else if (layout == PageLayoutMode.FourUp)
+            {
+                int hw = bounds.Width / 2;
+                int hh = bounds.Height / 2;
+
+                Rectangle[] rects = new Rectangle[]
+                {
+                    new Rectangle(bounds.Left, bounds.Top, hw, hh),
+                    new Rectangle(bounds.Left + hw, bounds.Top, hw, hh),
+                    new Rectangle(bounds.Left, bounds.Top + hh, hw, hh),
+                    new Rectangle(bounds.Left + hw, bounds.Top + hh, hw, hh)
+                };
+
+                for (int i = 0; i < Math.Min(4, pages.Count); i++)
+                {
+                    if (pages[i] != null)
+                    {
+                        DrawImageFittedInRect(g, pages[i], rects[i]);
+                        if (drawBorder) using (Pen p = new Pen(Color.FromArgb(203, 213, 225))) g.DrawRectangle(p, rects[i]);
+                    }
+                }
+            }
+            else
+            {
+                if (pages.Count > 0 && pages[0] != null)
+                {
+                    DrawImageFittedInRect(g, pages[0], bounds);
+                }
+            }
+        }
+
+        public static List<int[]> CalculateBookletSheets(int totalPages)
+        {
+            int padded = totalPages;
+            if (padded % 4 != 0)
+                padded += (4 - (padded % 4));
+
+            int totalSheets = padded / 4;
+            List<int[]> sheets = new List<int[]>();
+
+            for (int s = 0; s < totalSheets; s++)
+            {
+                int fLeft = padded - (2 * s);
+                int fRight = (2 * s) + 1;
+                int bLeft = (2 * s) + 2;
+                int bRight = padded - (2 * s) - 1;
+
+                sheets.Add(new int[] { fLeft > totalPages ? 0 : fLeft, fRight > totalPages ? 0 : fRight });
+                sheets.Add(new int[] { bLeft > totalPages ? 0 : bLeft, bRight > totalPages ? 0 : bRight });
+            }
+            return sheets;
+        }
+
+        public static Bitmap RenderSlipSheet(PrintJobItem item, int jobIndex, int totalJobs, int width, int height)
+        {
+            Bitmap bmp = new Bitmap(width, height);
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                g.Clear(Color.White);
+                g.SmoothingMode = SmoothingMode.HighQuality;
+
+                using (Pen borderPen = new Pen(Color.FromArgb(51, 65, 85), 4))
+                {
+                    g.DrawRectangle(borderPen, 30, 30, width - 60, height - 60);
+                }
+
+                using (Font titleFont = new Font("Segoe UI", 22, FontStyle.Bold))
+                using (Font headerFont = new Font("Segoe UI", 13, FontStyle.Bold))
+                using (Font bodyFont = new Font("Segoe UI", 11, FontStyle.Regular))
+                using (Brush darkBrush = new SolidBrush(Color.FromArgb(15, 23, 42)))
+                using (Brush grayBrush = new SolidBrush(Color.FromArgb(100, 116, 139)))
+                {
+                    g.DrawString("PRINTPULSE — JOB SEPARATOR", titleFont, darkBrush, 50, 60);
+                    g.DrawString("Document Batch Divider Slip", headerFont, grayBrush, 50, 105);
+
+                    using (Pen sep = new Pen(Color.FromArgb(203, 213, 225), 2))
+                    {
+                        g.DrawLine(sep, 50, 140, width - 50, 140);
+                    }
+
+                    int y = 170;
+                    g.DrawString(string.Format("Queue Job: {0} of {1}", jobIndex, totalJobs), headerFont, darkBrush, 50, y); y += 35;
+                    g.DrawString("File Name: " + item.FileName, headerFont, darkBrush, 50, y); y += 35;
+                    g.DrawString("Document Pages: " + item.TotalPages, bodyFont, darkBrush, 50, y); y += 28;
+                    g.DrawString("Requested Copies: " + item.Copies, bodyFont, darkBrush, 50, y); y += 28;
+                    g.DrawString("Color Mode: " + item.ColorMode, bodyFont, darkBrush, 50, y); y += 28;
+                    g.DrawString("Duplex Mode: " + item.DuplexMode, bodyFont, darkBrush, 50, y); y += 28;
+                    g.DrawString("Timestamp: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), bodyFont, grayBrush, 50, y); y += 45;
+
+                    g.DrawString("Pages following this slip belong to this document.", headerFont, Color.FromArgb(37, 99, 235) != null ? new SolidBrush(Color.FromArgb(37, 99, 235)) : darkBrush, 50, y);
+                }
+            }
+            return bmp;
+        }
+
+        public static bool ExportBatchToPdf(List<PrintJobItem> items, string outputPdfPath, out string error)
+        {
+            error = string.Empty;
+            try
+            {
+                using (FileStream fs = new FileStream(outputPdfPath, FileMode.Create, FileAccess.Write))
+                using (BinaryWriter bw = new BinaryWriter(fs))
+                {
+                    List<long> offsets = new List<long>();
+                    offsets.Add(0); // 1-based indexing for PDF objects
+
+                    Action<string> writeAscii = delegate(string s) {
+                        byte[] b = Encoding.ASCII.GetBytes(s);
+                        bw.Write(b);
+                    };
+
+                    writeAscii("%PDF-1.4\n");
+
+                    List<int> pageObjIds = new List<int>();
+                    int nextObjId = 3; // 1 = Catalog, 2 = Pages
+
+                    // Render each page into an image object and page object
+                    List<byte[]> imageBytesList = new List<byte[]>();
+                    List<Size> imageSizesList = new List<Size>();
+
+                    foreach (PrintJobItem item in items)
+                    {
+                        if (!item.IsEnabled) continue;
+                        List<int> pages = item.ResolvePageIndices();
+                        foreach (int p in pages)
+                        {
+                            using (Bitmap bmp = RenderPageThumbnail(item, p, 1200, 1600))
+                            {
+                                using (MemoryStream ms = new MemoryStream())
+                                {
+                                    bmp.Save(ms, ImageFormat.Jpeg);
+                                    imageBytesList.Add(ms.ToArray());
+                                    imageSizesList.Add(new Size(bmp.Width, bmp.Height));
+                                }
+                            }
+                        }
+                    }
+
+                    int totalPages = imageBytesList.Count;
+                    if (totalPages == 0)
+                    {
+                        error = "No pages to export in selected items.";
+                        return false;
+                    }
+
+                    for (int i = 0; i < totalPages; i++)
+                    {
+                        int imgId = nextObjId++;
+                        int pageId = nextObjId++;
+                        pageObjIds.Add(pageId);
+                    }
+
+                    // Write Catalog (Obj 1)
+                    offsets.Add(fs.Position);
+                    writeAscii(string.Format("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"));
+
+                    // Write Pages (Obj 2)
+                    offsets.Add(fs.Position);
+                    StringBuilder kids = new StringBuilder();
+                    foreach (int pid in pageObjIds)
+                        kids.Append(pid).Append(" 0 R ");
+                    writeAscii(string.Format("2 0 obj\n<< /Type /Pages /Kids [{0}] /Count {1} >>\nendobj\n", kids.ToString().Trim(), totalPages));
+
+                    // Write Image & Page objects
+                    for (int i = 0; i < totalPages; i++)
+                    {
+                        int imgId = 3 + (i * 2);
+                        int pageId = imgId + 1;
+                        byte[] imgData = imageBytesList[i];
+                        Size sz = imageSizesList[i];
+
+                        // Image object
+                        offsets.Add(fs.Position);
+                        string imgHeader = string.Format("{0} 0 obj\n<< /Type /XObject /Subtype /Image /Width {1} /Height {2} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length {3} >>\nstream\n",
+                            imgId, sz.Width, sz.Height, imgData.Length);
+                        writeAscii(imgHeader);
+                        bw.Write(imgData);
+                        writeAscii("\nendstream\nendobj\n");
+
+                        // Content stream
+                        string contentStream = string.Format("q {0} 0 0 {1} 0 0 cm /Im1 Do Q", sz.Width, sz.Height);
+                        byte[] contentBytes = Encoding.ASCII.GetBytes(contentStream);
+
+                        int contentId = nextObjId++; // dynamically append content stream obj
+                        offsets.Add(fs.Position);
+                        writeAscii(string.Format("{0} 0 obj\n<< /Length {1} >>\nstream\n{2}\nendstream\nendobj\n", contentId, contentBytes.Length, contentStream));
+
+                        // Page object
+                        offsets.Add(fs.Position);
+                        writeAscii(string.Format("{0} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {1} {2}] /Resources << /XObject << /Im1 {3} 0 R >> >> /Contents {4} 0 R >>\nendobj\n",
+                            pageId, sz.Width, sz.Height, imgId, contentId));
+                    }
+
+                    // Cross-Reference Table
+                    long xrefPos = fs.Position;
+                    int totalObjs = offsets.Count;
+                    writeAscii(string.Format("xref\n0 {0}\n0000000000 65535 f \n", totalObjs));
+                    for (int i = 1; i < totalObjs; i++)
+                    {
+                        writeAscii(string.Format("{0:D10} 00000 n \n", offsets[i]));
+                    }
+
+                    // Trailer
+                    writeAscii(string.Format("trailer\n<< /Size {0} /Root 1 0 R >>\nstartxref\n{1}\n%%EOF\n", totalObjs, xrefPos));
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return false;
+            }
+        }
+
+        public static Bitmap ApplyRotatedAndFiltered(Image source, int rotationDegrees, bool grayscale, bool tonerSaver)
         {
             Bitmap bmp = new Bitmap(source);
             if (rotationDegrees == 90)
@@ -621,20 +884,39 @@ namespace PrintPulse
             else if (rotationDegrees == 270)
                 bmp.RotateFlip(RotateFlipType.Rotate270FlipNone);
 
-            if (grayscale)
+            if (grayscale || tonerSaver)
             {
-                Bitmap gray = new Bitmap(bmp.Width, bmp.Height);
-                using (Graphics g = Graphics.FromImage(gray))
+                Bitmap filtered = new Bitmap(bmp.Width, bmp.Height);
+                using (Graphics g = Graphics.FromImage(filtered))
                 {
-                    ColorMatrix colorMatrix = new ColorMatrix(
-                        new float[][]
-                        {
-                            new float[] {.3f, .3f, .3f, 0, 0},
-                            new float[] {.59f, .59f, .59f, 0, 0},
-                            new float[] {.11f, .11f, .11f, 0, 0},
-                            new float[] {0, 0, 0, 1, 0},
-                            new float[] {0, 0, 0, 0, 1}
-                        });
+                    ColorMatrix colorMatrix;
+                    if (grayscale)
+                    {
+                        float lumBoost = tonerSaver ? 0.15f : 0.0f;
+                        colorMatrix = new ColorMatrix(
+                            new float[][]
+                            {
+                                new float[] {.3f, .3f, .3f, 0, 0},
+                                new float[] {.59f, .59f, .59f, 0, 0},
+                                new float[] {.11f, .11f, .11f, 0, 0},
+                                new float[] {0, 0, 0, 1, 0},
+                                new float[] {lumBoost, lumBoost, lumBoost, 0, 1}
+                            });
+                    }
+                    else
+                    {
+                        // Color with toner saver: light gamma boost
+                        colorMatrix = new ColorMatrix(
+                            new float[][]
+                            {
+                                new float[] {1f, 0, 0, 0, 0},
+                                new float[] {0, 1f, 0, 0, 0},
+                                new float[] {0, 0, 1f, 0, 0},
+                                new float[] {0, 0, 0, 1, 0},
+                                new float[] {.15f, .15f, .15f, 0, 1}
+                            });
+                    }
+
                     using (ImageAttributes attributes = new ImageAttributes())
                     {
                         attributes.SetColorMatrix(colorMatrix);
@@ -642,10 +924,15 @@ namespace PrintPulse
                     }
                 }
                 bmp.Dispose();
-                return gray;
+                return filtered;
             }
 
             return bmp;
+        }
+
+        public static Bitmap ApplyRotatedAndFiltered(Image source, int rotationDegrees, bool grayscale)
+        {
+            return ApplyRotatedAndFiltered(source, rotationDegrees, grayscale, false);
         }
     }
 }

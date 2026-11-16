@@ -41,7 +41,11 @@ All source code resides in `src/`:
 | `src/ReportForm.cs` | UI form displaying the final audit summary with metric cards, item audit table, and CSV/text/receipt export buttons. |
 | `src/FeedbackForm.cs` | UI form allowing users to submit feature requests and bug reports directly over HTTPS without an email app. |
 | `src/TelemetryService.cs` | Centralized anonymous error reporting and direct feedback submission over secure HTTPS with automatic PII / path redaction. Integrated with live Sentry DSN (`https://628e8b818e6c0337ffa686d9ef422bae@o4512439853449216.ingest.us.sentry.io/4512441183502336`). |
-| `src/MainForm.cs` | Main application window. Fluid split layout: Left queue with drag-and-drop file drop & row reordering; Right previewer with page scroller, rotate button, and responsive TableLayout settings; Bottom action bar with progress, status, and control buttons. |
+| `src/ManualDuplexWizard.cs` | Step-by-step visual guidance dialog for manual duplexing on single-sided printers. |
+| `src/SessionManager.cs` | Queue persistence and session crash/restart recovery engine. |
+| `src/WatchFolderService.cs` | Background filesystem drop folder watcher for automated file queueing. |
+| `src/AdvancedOptionsForm.cs` | Advanced options modal managing presets, slip-sheet separators, auto-sorting, and merged PDF export. |
+| `src/MainForm.cs` | Main application window. Fluid split layout: Left queue with drag-and-drop file drop, smart advisor, & row reordering; Right previewer with page scroller, rotate button, and Adobe Acrobat style page handling settings; Bottom action bar with progress, status, and control buttons. |
 | `src/Program.cs` | Application entry point with DPI awareness enablement and global unhandled exception catcher. |
 | `src/app.manifest` | Windows manifest declaring compatibility with Vista, 7, 8, 8.1, 10, and 11. |
 | `src/PrintPulse.csproj` | MSBuild project configuration targeting `.NETFramework,Version=v4.0,Profile=Client`. |

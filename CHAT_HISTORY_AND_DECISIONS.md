@@ -135,3 +135,13 @@ This document preserves the complete chronological record of user requests, assi
   * Implemented native Sentry Store API ingestion (`/api/{projectId}/store/`) in `TelemetryService.cs` with `X-Sentry-Auth` client authorization and anonymous PII-redacted payload structure (zero external dependencies, fully compatible with .NET 4.0 Client Profile).
   * Sent and verified test events in Sentry (Event ID `3bd28719ad4347cdbc1783ebc0de9865`).
   * Recompiled portable and installer binaries and pushed to GitHub `sudo-undo/PrintPulse`.
+* **PrintPulse v1.1.0 Major Release (2026-11-16):**
+  * **Adobe Acrobat-Style Page Selection & Handling:** Implemented Pages to Print (All, Current Page, Custom Range `1-4, 7`), Subsets (All in Range, Odd Pages Only, Even Pages Only), Reverse Order checkbox, Sizing (Fit, Actual Size 100%, Shrink Oversized, Custom Scale %), Orientation (Auto-Rotate & Center, Portrait, Landscape), and Toner/Ink Saver luminosity reduction.
+  * **Imposition & Layout Engine:** Added 2-Up (side-by-side) and 4-Up (2x2 grid) sheet tiling with dividing borders, plus automatic Booklet / Saddle-Stitch brochure folding imposition.
+  * **Interactive Manual Duplex Assistant:** Built `ManualDuplexWizard.cs` with animated visual step-by-step guidance showing users how to remove, turn 180°, and re-insert paper for printers lacking hardware duplexing.
+  * **Hardware Pre-Flight Check & Multi-Tray Routing:** Integrated Win32 spooler hardware status checks (Paper Out, Door Open, Jam, Offline, Error) before batch launches and dynamic paper tray / bin routing per document via `PrinterSettings.PaperSources`.
+  * **Advanced Options Modal (`AdvancedOptionsForm.cs`):** Added 1-click Presets/Profiles (Default Office, Eco-Draft, High-Quality Presentation, Folded Booklet), Slip-Sheet / Banner job dividers (Blank Page or Detailed Summary Slip), Queue Auto-Sorting (by Name, Pages, Type, Size), and native zero-dependency Merged PDF export (`DocumentRenderer.ExportBatchToPdf`).
+  * **Smart Print Advisor:** Non-intrusive proactive suggestion banner automatically detecting document and printer capabilities (e.g. single-sided printer duplexing, 2-Up paper saving for large files, mixed orientation).
+  * **Session Crash & Power-Outage Restore (`SessionManager.cs`):** Real-time queue persistence to `%LOCALAPPDATA%\PrintPulse\session_restore.dat` and auto-recovery on startup.
+  * **Watch Folder Service (`WatchFolderService.cs`):** Background filesystem watcher automatically ingesting files dropped into user-designated folders.
+  * **Artifacts & Distribution:** Built `dist/Portable/PrintPulse.exe` (127 KB) and `dist/Installer/PrintPulse_Setup_v1.1.exe` (140 KB), fully tested and verified with 0 errors.
