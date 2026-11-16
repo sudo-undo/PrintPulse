@@ -73,7 +73,14 @@ This document preserves the complete chronological record of user requests, assi
 
 ---
 
-## Session 8: Comprehensive Code Review, Security & Resource Audit
+## Session 9: Standalone Installer Build & Distribution Packaging
+* **User Request:**
+  * Where is the portable file located?
+  * Where is the installable version located?
+* **Implementation & Build:**
+  * **Portable App Location:** `dist/Portable/PrintPulse.exe` (74 KB).
+  * **Installable Setup Wizard:** Created and compiled `installer/SetupInstaller.cs` into `dist/Installer/PrintPulse_Setup_v1.0.exe` (87 KB). It embeds the portable executable payload, prompts for custom install location, installs shortcuts to Desktop & Start Menu, and registers in Windows Add/Remove Programs.
+  * Pushed all updates to GitHub repository `sudo-undo/PrintPulse`.
 * **Audit Scope:** Full codebase scan across GDI+ resource management, concurrency, file locks, and bounds checking.
 * **Vulnerabilities & Issues Identified and Resolved:**
   1. **File Locking Flaw (GDI+ `Image.FromFile`):** Replaced direct file opens with `FileStream` utilizing `FileShare.ReadWrite`. Files queued or previewed are no longer locked on disk by Windows.

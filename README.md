@@ -51,8 +51,15 @@ Compatible with **Windows XP SP3, Vista, 7, 8, 8.1, 10, and 11** (32-bit & 64-bi
 
 ## 📦 Packages & Distribution
 
-* **Portable Edition:** Located at [`dist/Portable/PrintPulse.exe`](file:///C:/Users/pc/.gemini/antigravity/scratch/PrintPulse/dist/Portable/PrintPulse.exe). Runs directly from USB thumb drives without installation.
-* **Setup Installer:** Script located at [`installer/PrintPulse_Installer.iss`](file:///C:/Users/pc/.gemini/antigravity/scratch/PrintPulse/installer/PrintPulse_Installer.iss). Includes a pre-flight registry check for `.NET 4.0` before installation.
+Both editions are located in the `dist/` folder:
+
+1. **Portable Edition (Zero Install):**
+   * **Location:** [`dist/Portable/PrintPulse.exe`](file:///C:/Users/pc/.gemini/antigravity/scratch/PrintPulse/dist/Portable/PrintPulse.exe)
+   * **Usage:** Single standalone `.exe` (74 KB). No installation required. Runs directly from USB pen drives or any folder on Windows XP through Windows 11.
+
+2. **Installable Edition (Setup Wizard):**
+   * **Location:** [`dist/Installer/PrintPulse_Setup_v1.0.exe`](file:///C:/Users/pc/.gemini/antigravity/scratch/PrintPulse/dist/Installer/PrintPulse_Setup_v1.0.exe)
+   * **Usage:** Complete setup wizard (87 KB). Prompts for destination folder, creates Desktop & Start Menu shortcuts, and registers in Windows Control Panel (Add/Remove Programs). Also includes the Inno Setup script [`installer/PrintPulse_Installer.iss`](file:///C:/Users/pc/.gemini/antigravity/scratch/PrintPulse/installer/PrintPulse_Installer.iss).
 
 ---
 
