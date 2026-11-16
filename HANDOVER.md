@@ -8,6 +8,7 @@
 ## 1. Project Identity & Purpose
 * **Project Name:** PrintPulse (Batch Print Studio)
 * **Author / Feedback Contact:** `hs123253@gmail.com`
+* **GitHub Repository:** https://github.com/sudo-undo/PrintPulse
 * **Repository Path:** `C:\Users\pc\.gemini\antigravity\scratch\PrintPulse`
 * **Core Function:** High-speed batch printing tool allowing users to queue multiple documents (PDF, JPG, PNG, BMP, TIFF, TXT, CSV), drag to reorder, preview pages, adjust per-file print options, monitor Windows Print Spooler status in real time, auto-freeze on paper jams/errors with page-level reprint prompts, and generate a final print audit report.
 * **Licensing Mode:** 100% Unlocked, fully functional (all paid barriers removed for direct use).
