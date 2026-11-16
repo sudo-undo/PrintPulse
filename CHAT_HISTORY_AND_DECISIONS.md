@@ -145,3 +145,14 @@ This document preserves the complete chronological record of user requests, assi
   * **Session Crash & Power-Outage Restore (`SessionManager.cs`):** Real-time queue persistence to `%LOCALAPPDATA%\PrintPulse\session_restore.dat` and auto-recovery on startup.
   * **Watch Folder Service (`WatchFolderService.cs`):** Background filesystem watcher automatically ingesting files dropped into user-designated folders.
   * **Artifacts & Distribution:** Built `dist/Portable/PrintPulse.exe` (127 KB) and `dist/Installer/PrintPulse_Setup_v1.1.exe` (140 KB), fully tested and verified with 0 errors.
+
+* **UI Polishing, Window Scrolling & Expanded Telemetry Suite (2026-11-16):**
+  * **Advanced Options Window Scrolling Fix (`AdvancedOptionsForm.cs`):** Fixed issue where the top group box ("Quick Print Presets") was clipped. Made form resizable (`FormBorderStyle.Sizable`, `Size = 720x640`, `MinimumSize = 680x500`), configured `content.AutoScroll = true` with `AutoScrollMinSize = new Size(640, 520)`, and corrected docking and z-order.
+  * **UI Action Bar Optimization (`MainForm.cs`):** Relocated the `⚙ Advanced` button from the top queue manipulation toolbar (`flowTopLeft`) to the bottom utility action bar (`flowBottomRight`), grouping it cohesively alongside `💬 Feedback` and `📊 View Report`.
+  * **Anonymous Product Analytics & Heartbeat (`TelemetryService.cs`):**
+    * Daily/Weekly Active Users (DAU/WAU) session heartbeat with anonymous SHA-256 machine identifier.
+    * Document Format Breakdown tracking (`pdf_count`, `docx_count`, `img_count`, `txt_count`).
+    * Funnel & Feature Drop-Off Tracking (`TrackFunnelStep`).
+    * Error Recovery Choice tracking (`TrackErrorRecoveryChoice`).
+    * High-Volume & Paywall Intent Triggers (`TrackHighVolumeTrigger` for batches >10 files or single docs >50 pages).
+  * **Binaries Recompiled & Verified:** Rebuilt with MSBuild (`0 Errors`, `bin/Release/PrintPulse.exe` = 138 KB, `dist/Installer/PrintPulse_Setup_v1.1.exe` = 150 KB).

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -173,6 +174,129 @@ namespace PrintPulse
             });
         }
 
+        private static string _anonymousMachineId = null;
+
+        public static string GetAnonymousMachineId()
+        {
+            if (_anonymousMachineId != null) return _anonymousMachineId;
+            try
+            {
+                string raw = Environment.MachineName + "_" + Environment.OSVersion.Platform + "_" + Environment.ProcessorCount;
+                using (System.Security.Cryptography.SHA256 sha = System.Security.Cryptography.SHA256.Create())
+                {
+                    byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(raw));
+                    StringBuilder sb = new StringBuilder();
+                    for (int i = 0; i < 8; i++) sb.Append(hash[i].ToString("x2"));
+                    _anonymousMachineId = sb.ToString();
+                }
+            }
+            catch
+            {
+                _anonymousMachineId = "anon_" + Environment.TickCount.ToString("x");
+            }
+            return _anonymousMachineId;
+        }
+
+        public static void TrackSessionStart()
+        {
+            if (!IsTelemetryEnabled) return;
+            ThreadPool.QueueUserWorkItem(state =>
+            {
+                try
+                {
+                    EnableSecureTls();
+                    string anonId = GetAnonymousMachineId();
+                    string logEntry = string.Format("[{0:yyyy-MM-dd HH:mm:ss UTC}] SESSION_START | Machine: {1} | OS: {2}\n------------------------------------------------------------\n",
+                        DateTime.UtcNow, anonId, Environment.OSVersion.VersionString);
+                    WriteToLocalDiagnosticLog(logEntry);
+
+                    SendSentryEvent("info", "PrintPulse.Session", "App Launched", new Dictionary<string, string>
+                    {
+                        { "event_type", "session_start" },
+                        { "machine_id", anonId },
+                        { "os", Environment.OSVersion.VersionString },
+                        { "app", "PrintPulse" },
+                        { "version", "1.1.0" }
+                    }, null);
+                }
+                catch { }
+            });
+        }
+
+        public static void TrackFunnelStep(string featureName, string actionOutcome)
+        {
+            if (!IsTelemetryEnabled) return;
+            ThreadPool.QueueUserWorkItem(state =>
+            {
+                try
+                {
+                    EnableSecureTls();
+                    string logEntry = string.Format("[{0:yyyy-MM-dd HH:mm:ss UTC}] FUNNEL | Feature: {1} | Action: {2}\n------------------------------------------------------------\n",
+                        DateTime.UtcNow, featureName, actionOutcome);
+                    WriteToLocalDiagnosticLog(logEntry);
+
+                    SendSentryEvent("info", "PrintPulse.Funnel", string.Format("Feature {0}: {1}", featureName, actionOutcome), new Dictionary<string, string>
+                    {
+                        { "event_type", "funnel_step" },
+                        { "feature", featureName },
+                        { "action", actionOutcome },
+                        { "machine_id", GetAnonymousMachineId() },
+                        { "version", "1.1.0" }
+                    }, null);
+                }
+                catch { }
+            });
+        }
+
+        public static void TrackErrorRecoveryChoice(string fileName, string error, int page, string choice)
+        {
+            if (!IsTelemetryEnabled) return;
+            ThreadPool.QueueUserWorkItem(state =>
+            {
+                try
+                {
+                    EnableSecureTls();
+                    string logEntry = string.Format("[{0:yyyy-MM-dd HH:mm:ss UTC}] RECOVERY_CHOICE | File: {1} | Page: {2} | Choice: {3} | Error: {4}\n------------------------------------------------------------\n",
+                        DateTime.UtcNow, AnonymizePathData(fileName), page, choice, AnonymizePathData(error));
+                    WriteToLocalDiagnosticLog(logEntry);
+
+                    SendSentryEvent("info", "PrintPulse.Recovery", string.Format("Error Recovery: {0} for {1}", choice, AnonymizePathData(error)), new Dictionary<string, string>
+                    {
+                        { "event_type", "error_recovery" },
+                        { "recovery_choice", choice },
+                        { "failed_page", page.ToString() },
+                        { "version", "1.1.0" }
+                    }, null);
+                }
+                catch { }
+            });
+        }
+
+        public static void TrackHighVolumeTrigger(string triggerType, int countValue)
+        {
+            if (!IsTelemetryEnabled) return;
+            ThreadPool.QueueUserWorkItem(state =>
+            {
+                try
+                {
+                    EnableSecureTls();
+                    string logEntry = string.Format("[{0:yyyy-MM-dd HH:mm:ss UTC}] HIGH_VOLUME_TRIGGER | Type: {1} | Value: {2}\n------------------------------------------------------------\n",
+                        DateTime.UtcNow, triggerType, countValue);
+                    WriteToLocalDiagnosticLog(logEntry);
+
+                    SendSentryEvent("info", "PrintPulse.Commercial", string.Format("High Volume: {0} = {1}", triggerType, countValue), new Dictionary<string, string>
+                    {
+                        { "event_type", "volume_trigger" },
+                        { "trigger_type", triggerType },
+                        { "count_value", countValue.ToString() },
+                        { "machine_id", GetAnonymousMachineId() },
+                        { "version", "1.1.0" }
+                    }, null);
+                }
+                catch { }
+            });
+        }
+
         public static string DetectPrinterBrand(string printerName)
         {
             if (string.IsNullOrEmpty(printerName)) return "Generic / Unknown";
@@ -192,7 +316,7 @@ namespace PrintPulse
             return "Other";
         }
 
-        public static void TrackUsageHeartbeat(int filesCount, int totalPages, int totalSheets, string printerName, string featuresUsed)
+        public static void TrackUsageHeartbeat(int filesCount, int totalPages, int totalSheets, string printerName, string featuresUsed, int pdfCount, int docxCount, int imgCount, int txtCount)
         {
             if (!IsTelemetryEnabled) return;
 
@@ -204,61 +328,117 @@ namespace PrintPulse
                     string brand = DetectPrinterBrand(printerName);
 
                     string logEntry = string.Format(
-                        "[{0:yyyy-MM-dd HH:mm:ss UTC}] USAGE_HEARTBEAT | Files: {1} | Pages: {2} | Sheets: {3} | Brand: {4} | Features: {5}\n------------------------------------------------------------\n",
+                        "[{0:yyyy-MM-dd HH:mm:ss UTC}] USAGE_HEARTBEAT | Files: {1} | Pages: {2} | Sheets: {3} | Brand: {4} | Features: {5} | Formats: PDF={6}, DOCX={7}, IMG={8}, TXT={9}\n------------------------------------------------------------\n",
                         DateTime.UtcNow,
                         filesCount,
                         totalPages,
                         totalSheets,
                         brand,
-                        featuresUsed ?? "Standard"
+                        featuresUsed ?? "Standard",
+                        pdfCount,
+                        docxCount,
+                        imgCount,
+                        txtCount
                     );
                     WriteToLocalDiagnosticLog(logEntry);
 
-                    if (!string.IsNullOrEmpty(SentryDsnEndpoint))
+                    Dictionary<string, string> tags = new Dictionary<string, string>
                     {
-                        try
-                        {
-                            Uri uri = new Uri(SentryDsnEndpoint);
-                            string publicKey = uri.UserInfo;
-                            string hostName = uri.Host;
-                            string projectId = uri.AbsolutePath.Trim('/');
-                            string storeUrl = "https://" + hostName + "/api/" + projectId + "/store/";
+                        { "app", "PrintPulse" },
+                        { "version", "1.1.0" },
+                        { "event_type", "usage_heartbeat" },
+                        { "printer_brand", brand },
+                        { "os", Environment.OSVersion.VersionString },
+                        { "features", featuresUsed ?? "Standard" },
+                        { "machine_id", GetAnonymousMachineId() }
+                    };
 
-                            string eventId = Guid.NewGuid().ToString("N");
-                            string timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
-                            string authHeader = "Sentry sentry_version=7, sentry_client=PrintPulse/1.1, sentry_key=" + publicKey;
+                    Dictionary<string, object> extra = new Dictionary<string, object>
+                    {
+                        { "files_count", filesCount },
+                        { "pages_printed", totalPages },
+                        { "sheets_used", totalSheets },
+                        { "pdf_count", pdfCount },
+                        { "docx_count", docxCount },
+                        { "image_count", imgCount },
+                        { "text_count", txtCount }
+                    };
 
-                            string jsonPayload = string.Format(
-                                "{{\"event_id\":\"{0}\",\"timestamp\":\"{1}\",\"platform\":\"csharp\",\"level\":\"info\",\"logger\":\"PrintPulse.Usage\",\"message\":{{\"formatted\":\"Batch Complete: {2} files, {3} pages spooled on {4}\"}},\"tags\":{{\"app\":\"PrintPulse\",\"version\":\"1.1.0\",\"event_type\":\"usage_heartbeat\",\"printer_brand\":\"{4}\",\"os\":\"{5}\",\"features\":\"{6}\"}},\"extra\":{{\"files_count\":{2},\"pages_printed\":{3},\"sheets_used\":{7}}}}}",
-                                eventId,
-                                timestamp,
-                                filesCount,
-                                totalPages,
-                                EscapeJson(brand),
-                                EscapeJson(Environment.OSVersion.VersionString),
-                                EscapeJson(featuresUsed ?? "Standard"),
-                                totalSheets
-                            );
-
-                            byte[] data = Encoding.UTF8.GetBytes(jsonPayload);
-                            HttpWebRequest req = (HttpWebRequest)WebRequest.Create(storeUrl);
-                            req.Method = "POST";
-                            req.ContentType = "application/json";
-                            req.Headers.Add("X-Sentry-Auth", authHeader);
-                            req.UserAgent = "PrintPulse/1.1";
-                            req.ContentLength = data.Length;
-                            req.Timeout = 8000;
-                            using (Stream s = req.GetRequestStream())
-                            {
-                                s.Write(data, 0, data.Length);
-                            }
-                            using (req.GetResponse()) { }
-                        }
-                        catch { }
-                    }
+                    SendSentryEvent("info", "PrintPulse.Usage", string.Format("Batch Complete: {0} files, {1} pages spooled on {2}", filesCount, totalPages, brand), tags, extra);
                 }
                 catch { }
             });
+        }
+
+        public static void TrackUsageHeartbeat(int filesCount, int totalPages, int totalSheets, string printerName, string featuresUsed)
+        {
+            TrackUsageHeartbeat(filesCount, totalPages, totalSheets, printerName, featuresUsed, 0, 0, 0, 0);
+        }
+
+        private static void SendSentryEvent(string level, string logger, string formattedMessage, Dictionary<string, string> tags, Dictionary<string, object> extra)
+        {
+            if (string.IsNullOrEmpty(SentryDsnEndpoint)) return;
+            try
+            {
+                Uri uri = new Uri(SentryDsnEndpoint);
+                string publicKey = uri.UserInfo;
+                string hostName = uri.Host;
+                string projectId = uri.AbsolutePath.Trim('/');
+                string storeUrl = "https://" + hostName + "/api/" + projectId + "/store/";
+
+                string eventId = Guid.NewGuid().ToString("N");
+                string timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
+                string authHeader = "Sentry sentry_version=7, sentry_client=PrintPulse/1.1, sentry_key=" + publicKey;
+
+                StringBuilder sbTags = new StringBuilder();
+                if (tags != null)
+                {
+                    foreach (KeyValuePair<string, string> kvp in tags)
+                    {
+                        sbTags.Append(string.Format("\"{0}\":\"{1}\",", EscapeJson(kvp.Key), EscapeJson(kvp.Value)));
+                    }
+                }
+                string tagsJson = sbTags.ToString().TrimEnd(',');
+
+                StringBuilder sbExtra = new StringBuilder();
+                if (extra != null)
+                {
+                    foreach (KeyValuePair<string, object> kvp in extra)
+                    {
+                        if (kvp.Value is int || kvp.Value is long || kvp.Value is double || kvp.Value is float)
+                            sbExtra.Append(string.Format("\"{0}\":{1},", EscapeJson(kvp.Key), kvp.Value));
+                        else
+                            sbExtra.Append(string.Format("\"{0}\":\"{1}\",", EscapeJson(kvp.Key), EscapeJson(kvp.Value != null ? kvp.Value.ToString() : "")));
+                    }
+                }
+                string extraJson = sbExtra.ToString().TrimEnd(',');
+
+                string jsonPayload = string.Format(
+                    "{{\"event_id\":\"{0}\",\"timestamp\":\"{1}\",\"platform\":\"csharp\",\"level\":\"{2}\",\"logger\":\"{3}\",\"message\":{{\"formatted\":\"{4}\"}},\"tags\":{{{5}}},\"extra\":{{{6}}}}}",
+                    eventId,
+                    timestamp,
+                    EscapeJson(level),
+                    EscapeJson(logger),
+                    EscapeJson(formattedMessage),
+                    tagsJson,
+                    extraJson
+                );
+
+                byte[] data = Encoding.UTF8.GetBytes(jsonPayload);
+                HttpWebRequest req = (HttpWebRequest)WebRequest.Create(storeUrl);
+                req.Method = "POST";
+                req.ContentType = "application/json";
+                req.Headers.Add("X-Sentry-Auth", authHeader);
+                req.UserAgent = "PrintPulse/1.1";
+                req.ContentLength = data.Length;
+                req.Timeout = 8000;
+                using (Stream s = req.GetRequestStream())
+                {
+                    s.Write(data, 0, data.Length);
+                }
+                using (req.GetResponse()) { }
+            }
+            catch { }
         }
 
         private static void WriteToLocalDiagnosticLog(string text)

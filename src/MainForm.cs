@@ -98,6 +98,7 @@ namespace PrintPulse
                         _split.SplitterDistance = (int)(this.Width * 0.48);
                     }
                     RestorePreviousSession();
+                    TelemetryService.TrackSessionStart();
                 }
                 catch { }
             };
@@ -196,16 +197,12 @@ namespace PrintPulse
             Button btnRemove = CreateModernButton("✕ Remove", Color.FromArgb(241, 245, 249), Color.FromArgb(100, 116, 139), 0, 0, 80, 32);
             btnRemove.Click += delegate { RemoveSelectedItem(); };
 
-            Button btnAdvanced = CreateModernButton("⚙ Advanced Options", Color.FromArgb(241, 245, 249), Color.FromArgb(79, 70, 229), 0, 0, 145, 32);
-            btnAdvanced.Click += delegate { OpenAdvancedOptions(); };
-
             flowTopLeft.Controls.Add(btnAddFiles);
             flowTopLeft.Controls.Add(btnAddFolder);
             flowTopLeft.Controls.Add(btnClear);
             flowTopLeft.Controls.Add(btnMoveUp);
             flowTopLeft.Controls.Add(btnMoveDown);
             flowTopLeft.Controls.Add(btnRemove);
-            flowTopLeft.Controls.Add(btnAdvanced);
 
             topBar.Controls.Add(flowTopLeft);
             topBar.Controls.Add(pnlTopRight);
@@ -224,7 +221,7 @@ namespace PrintPulse
             FlowLayoutPanel flowBottomRight = new FlowLayoutPanel
             {
                 Dock = DockStyle.Right,
-                Width = 470,
+                Width = 630,
                 FlowDirection = FlowDirection.RightToLeft,
                 Padding = new Padding(0, 4, 0, 0),
                 BackColor = Color.Transparent
@@ -246,10 +243,14 @@ namespace PrintPulse
             _btnCancel.Enabled = false;
             _btnCancel.Click += delegate { CancelBatch(); };
 
+            Button btnAdvanced = CreateModernButton("⚙ Advanced", Color.FromArgb(241, 245, 249), Color.FromArgb(79, 70, 229), 0, 0, 105, 42);
+            btnAdvanced.Click += delegate { OpenAdvancedOptions(); };
+
             Button btnFeedback = CreateModernButton("💬 Feedback", Color.FromArgb(241, 245, 249), Color.FromArgb(100, 116, 139), 0, 0, 95, 42);
             btnFeedback.Click += delegate { OpenFeedback(); };
 
             flowBottomRight.Controls.Add(btnFeedback);
+            flowBottomRight.Controls.Add(btnAdvanced);
             flowBottomRight.Controls.Add(_btnViewReport);
             flowBottomRight.Controls.Add(_btnStart);
             flowBottomRight.Controls.Add(_btnPause);
@@ -754,6 +755,7 @@ namespace PrintPulse
                     _lblStatusText.Text = "Generating consolidated PDF document...";
                     string err;
                     bool ok = DocumentRenderer.ExportBatchToPdf(_queue, sfd.FileName, out err);
+                    TelemetryService.TrackFunnelStep("MergedPdf", ok ? "ExportSuccess" : "ExportFailed");
                     if (ok)
                     {
                         _lblStatusText.Text = "PDF exported successfully: " + Path.GetFileName(sfd.FileName);
@@ -768,6 +770,10 @@ namespace PrintPulse
                         MessageBox.Show("Failed to export PDF: " + err, "Export Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                 }
+                else
+                {
+                    TelemetryService.TrackFunnelStep("MergedPdf", "ExportCancelled");
+                }
             }
         }
 
@@ -778,6 +784,7 @@ namespace PrintPulse
             {
                 ManualDuplexWizard wizard = new ManualDuplexWizard(docName, step, totalSheets);
                 userConfirmed = (wizard.ShowDialog(this) == DialogResult.OK);
+                TelemetryService.TrackFunnelStep("ManualDuplex", userConfirmed ? "Resumed" : "Cancelled");
             }));
             return userConfirmed;
         }
@@ -891,6 +898,11 @@ namespace PrintPulse
             UpdateSummaryMetrics();
             SessionManager.SaveSession(_queue);
 
+            if (_queue.Count >= 10)
+            {
+                TelemetryService.TrackHighVolumeTrigger("BatchCount_Over10", _queue.Count);
+            }
+
             if (_selectedItem == null && _queue.Count > 0)
             {
                 _lvQueue.Items[_queue.Count - 1].Selected = true;
@@ -906,6 +918,11 @@ namespace PrintPulse
             PrintJobItem item = new PrintJobItem(path);
             item.TotalPages = DocumentRenderer.InspectPageCount(item);
             _queue.Add(item);
+
+            if (item.TotalPages >= 50)
+            {
+                TelemetryService.TrackHighVolumeTrigger("PageCount_Over50", item.TotalPages);
+            }
         }
 
         private void RefreshQueueListView()
@@ -1368,6 +1385,7 @@ namespace PrintPulse
             {
                 ReprintDialog dlg = new ReprintDialog(item, error, page);
                 dlg.ShowDialog(this);
+                TelemetryService.TrackErrorRecoveryChoice(item.FileName, error, page, dlg.SelectedChoice.ToString());
                 resumeCallback(dlg.SelectedChoice, dlg.ResumePageNumber);
             }));
         }

@@ -233,10 +233,17 @@ namespace PrintPulse
 
             Log("Batch completed. Total pages printed: " + totalPagesPrinted + " | Sheets: " + totalSheetsUsed);
 
-            // Collect features used in this batch
+            // Collect features and formats used in this batch
             List<string> activeFeatures = new List<string>();
+            int pdfCount = 0, docxCount = 0, imgCount = 0, txtCount = 0;
+
             foreach (var itm in items)
             {
+                if (itm.Type == DocumentType.Pdf) pdfCount++;
+                else if (itm.Type == DocumentType.Image) imgCount++;
+                else if (itm.FilePath != null && itm.FilePath.EndsWith(".docx", StringComparison.OrdinalIgnoreCase)) docxCount++;
+                else txtCount++;
+
                 if (itm.LayoutMode == PageLayoutMode.TwoUp && !activeFeatures.Contains("2-Up")) activeFeatures.Add("2-Up");
                 if (itm.LayoutMode == PageLayoutMode.FourUp && !activeFeatures.Contains("4-Up")) activeFeatures.Add("4-Up");
                 if (itm.LayoutMode == PageLayoutMode.Booklet && !activeFeatures.Contains("Booklet")) activeFeatures.Add("Booklet");
@@ -247,7 +254,7 @@ namespace PrintPulse
             if (AdvancedOptionsForm.CurrentSlipSheetMode != SlipSheetMode.None) activeFeatures.Add("SlipSheet");
             string featureSummary = activeFeatures.Count > 0 ? string.Join(", ", activeFeatures.ToArray()) : "Standard";
 
-            TelemetryService.TrackUsageHeartbeat(totalProcessed, totalPagesPrinted, totalSheetsUsed, TargetPrinterName, featureSummary);
+            TelemetryService.TrackUsageHeartbeat(totalProcessed, totalPagesPrinted, totalSheetsUsed, TargetPrinterName, featureSummary, pdfCount, docxCount, imgCount, txtCount);
 
             if (OnBatchFinished != null)
                 OnBatchFinished(report);
