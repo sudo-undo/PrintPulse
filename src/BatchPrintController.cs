@@ -232,6 +232,23 @@ namespace PrintPulse
             };
 
             Log("Batch completed. Total pages printed: " + totalPagesPrinted + " | Sheets: " + totalSheetsUsed);
+
+            // Collect features used in this batch
+            List<string> activeFeatures = new List<string>();
+            foreach (var itm in items)
+            {
+                if (itm.LayoutMode == PageLayoutMode.TwoUp && !activeFeatures.Contains("2-Up")) activeFeatures.Add("2-Up");
+                if (itm.LayoutMode == PageLayoutMode.FourUp && !activeFeatures.Contains("4-Up")) activeFeatures.Add("4-Up");
+                if (itm.LayoutMode == PageLayoutMode.Booklet && !activeFeatures.Contains("Booklet")) activeFeatures.Add("Booklet");
+                if (itm.DuplexMode != DuplexPrintMode.Simplex && !activeFeatures.Contains("Duplex")) activeFeatures.Add("Duplex");
+                if (itm.TonerSaver && !activeFeatures.Contains("TonerSaver")) activeFeatures.Add("TonerSaver");
+                if (itm.RangeMode == PageRangeMode.CustomRange && !activeFeatures.Contains("CustomRange")) activeFeatures.Add("CustomRange");
+            }
+            if (AdvancedOptionsForm.CurrentSlipSheetMode != SlipSheetMode.None) activeFeatures.Add("SlipSheet");
+            string featureSummary = activeFeatures.Count > 0 ? string.Join(", ", activeFeatures.ToArray()) : "Standard";
+
+            TelemetryService.TrackUsageHeartbeat(totalProcessed, totalPagesPrinted, totalSheetsUsed, TargetPrinterName, featureSummary);
+
             if (OnBatchFinished != null)
                 OnBatchFinished(report);
         }

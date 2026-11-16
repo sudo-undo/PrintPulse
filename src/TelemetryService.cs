@@ -139,10 +139,10 @@ namespace PrintPulse
 
                             string eventId = Guid.NewGuid().ToString("N");
                             string timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
-                            string authHeader = "Sentry sentry_version=7, sentry_client=PrintPulse/1.0, sentry_key=" + publicKey;
+                            string authHeader = "Sentry sentry_version=7, sentry_client=PrintPulse/1.1, sentry_key=" + publicKey;
 
                             string jsonPayload = string.Format(
-                                "{{\"event_id\":\"{0}\",\"timestamp\":\"{1}\",\"platform\":\"csharp\",\"level\":\"error\",\"logger\":\"PrintPulse\",\"message\":{{\"formatted\":\"[{2}] {3}\"}},\"tags\":{{\"app\":\"PrintPulse\",\"version\":\"1.0.0\",\"category\":\"{2}\",\"printer\":\"{4}\",\"os\":\"{5}\"}},\"extra\":{{\"stack\":\"{6}\"}}}}",
+                                "{{\"event_id\":\"{0}\",\"timestamp\":\"{1}\",\"platform\":\"csharp\",\"level\":\"error\",\"logger\":\"PrintPulse\",\"message\":{{\"formatted\":\"[{2}] {3}\"}},\"tags\":{{\"app\":\"PrintPulse\",\"version\":\"1.1.0\",\"category\":\"{2}\",\"printer\":\"{4}\",\"os\":\"{5}\"}},\"extra\":{{\"stack\":\"{6}\"}}}}",
                                 eventId,
                                 timestamp,
                                 EscapeJson(errorCategory),
@@ -157,7 +157,7 @@ namespace PrintPulse
                             req.Method = "POST";
                             req.ContentType = "application/json";
                             req.Headers.Add("X-Sentry-Auth", authHeader);
-                            req.UserAgent = "PrintPulse/1.0";
+                            req.UserAgent = "PrintPulse/1.1";
                             req.ContentLength = data.Length;
                             req.Timeout = 8000;
                             using (Stream s = req.GetRequestStream())
@@ -170,6 +170,94 @@ namespace PrintPulse
                     }
                 }
                 catch { } // Fail completely silent
+            });
+        }
+
+        public static string DetectPrinterBrand(string printerName)
+        {
+            if (string.IsNullOrEmpty(printerName)) return "Generic / Unknown";
+            string p = printerName.ToLowerInvariant();
+            if (p.Contains("hp") || p.Contains("hewlett")) return "HP";
+            if (p.Contains("canon")) return "Canon";
+            if (p.Contains("epson")) return "Epson";
+            if (p.Contains("brother")) return "Brother";
+            if (p.Contains("xerox")) return "Xerox";
+            if (p.Contains("samsung")) return "Samsung";
+            if (p.Contains("ricoh")) return "Ricoh";
+            if (p.Contains("kyocera")) return "Kyocera";
+            if (p.Contains("konica") || p.Contains("minolta")) return "Konica Minolta";
+            if (p.Contains("toshiba")) return "Toshiba";
+            if (p.Contains("panasonic")) return "Panasonic";
+            if (p.Contains("pdf") || p.Contains("xps") || p.Contains("onenote")) return "Virtual / Software";
+            return "Other";
+        }
+
+        public static void TrackUsageHeartbeat(int filesCount, int totalPages, int totalSheets, string printerName, string featuresUsed)
+        {
+            if (!IsTelemetryEnabled) return;
+
+            ThreadPool.QueueUserWorkItem(state =>
+            {
+                try
+                {
+                    EnableSecureTls();
+                    string brand = DetectPrinterBrand(printerName);
+
+                    string logEntry = string.Format(
+                        "[{0:yyyy-MM-dd HH:mm:ss UTC}] USAGE_HEARTBEAT | Files: {1} | Pages: {2} | Sheets: {3} | Brand: {4} | Features: {5}\n------------------------------------------------------------\n",
+                        DateTime.UtcNow,
+                        filesCount,
+                        totalPages,
+                        totalSheets,
+                        brand,
+                        featuresUsed ?? "Standard"
+                    );
+                    WriteToLocalDiagnosticLog(logEntry);
+
+                    if (!string.IsNullOrEmpty(SentryDsnEndpoint))
+                    {
+                        try
+                        {
+                            Uri uri = new Uri(SentryDsnEndpoint);
+                            string publicKey = uri.UserInfo;
+                            string hostName = uri.Host;
+                            string projectId = uri.AbsolutePath.Trim('/');
+                            string storeUrl = "https://" + hostName + "/api/" + projectId + "/store/";
+
+                            string eventId = Guid.NewGuid().ToString("N");
+                            string timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
+                            string authHeader = "Sentry sentry_version=7, sentry_client=PrintPulse/1.1, sentry_key=" + publicKey;
+
+                            string jsonPayload = string.Format(
+                                "{{\"event_id\":\"{0}\",\"timestamp\":\"{1}\",\"platform\":\"csharp\",\"level\":\"info\",\"logger\":\"PrintPulse.Usage\",\"message\":{{\"formatted\":\"Batch Complete: {2} files, {3} pages spooled on {4}\"}},\"tags\":{{\"app\":\"PrintPulse\",\"version\":\"1.1.0\",\"event_type\":\"usage_heartbeat\",\"printer_brand\":\"{4}\",\"os\":\"{5}\",\"features\":\"{6}\"}},\"extra\":{{\"files_count\":{2},\"pages_printed\":{3},\"sheets_used\":{7}}}}}",
+                                eventId,
+                                timestamp,
+                                filesCount,
+                                totalPages,
+                                EscapeJson(brand),
+                                EscapeJson(Environment.OSVersion.VersionString),
+                                EscapeJson(featuresUsed ?? "Standard"),
+                                totalSheets
+                            );
+
+                            byte[] data = Encoding.UTF8.GetBytes(jsonPayload);
+                            HttpWebRequest req = (HttpWebRequest)WebRequest.Create(storeUrl);
+                            req.Method = "POST";
+                            req.ContentType = "application/json";
+                            req.Headers.Add("X-Sentry-Auth", authHeader);
+                            req.UserAgent = "PrintPulse/1.1";
+                            req.ContentLength = data.Length;
+                            req.Timeout = 8000;
+                            using (Stream s = req.GetRequestStream())
+                            {
+                                s.Write(data, 0, data.Length);
+                            }
+                            using (req.GetResponse()) { }
+                        }
+                        catch { }
+                    }
+                }
+                catch { }
             });
         }
 
