@@ -74,6 +74,7 @@ namespace PrintPulse
             this.DragEnter += MainForm_DragEnter;
             this.DragDrop += MainForm_DragDrop;
             this.Resize += MainForm_Resize;
+            this.FormClosing += MainForm_FormClosing;
 
             // =========================================================================
             // 1. TOP TOOLBAR (RESPONSIVE SPLIT: Left Actions Flow + Right Printer Dock)
@@ -466,6 +467,26 @@ namespace PrintPulse
         private void MainForm_Resize(object sender, EventArgs e)
         {
             SetProportionalSplit();
+        }
+
+        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (_controller != null && _controller.IsRunning)
+            {
+                if (MessageBox.Show("A batch print job is currently in progress.\nAre you sure you want to exit and abort the remaining queue?",
+                    "PrintPulse - Confirm Exit", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.No)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+                _controller.RequestCancel();
+            }
+
+            if (_pbPreview.Image != null)
+            {
+                _pbPreview.Image.Dispose();
+                _pbPreview.Image = null;
+            }
         }
 
         private void SetProportionalSplit()

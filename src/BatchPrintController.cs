@@ -34,6 +34,7 @@ namespace PrintPulse
         private int _chosenResumePage;
 
         public bool IsRunning { get; private set; }
+        public bool IsPaused { get { return _isPaused; } }
         public string TargetPrinterName { get; set; }
         public double PricePerBwPage { get; set; }
         public double PricePerColorPage { get; set; }

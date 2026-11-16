@@ -73,7 +73,15 @@ This document preserves the complete chronological record of user requests, assi
 
 ---
 
-## Session 7: Startup Bug Resolution & Verified Launch
+## Session 8: Comprehensive Code Review, Security & Resource Audit
+* **Audit Scope:** Full codebase scan across GDI+ resource management, concurrency, file locks, and bounds checking.
+* **Vulnerabilities & Issues Identified and Resolved:**
+  1. **File Locking Flaw (GDI+ `Image.FromFile`):** Replaced direct file opens with `FileStream` utilizing `FileShare.ReadWrite`. Files queued or previewed are no longer locked on disk by Windows.
+  2. **Memory Leak Safeguard:** Enclosed all dynamic bitmaps (`transformed`) and graphic buffers in strict `using (...)` scopes to prevent GDI object leaks.
+  3. **Large File Streaming Guard:** Refactored text rendering to stream lines incrementally rather than loading entire files into memory with `File.ReadAllLines`, preventing memory spikes on large files.
+  4. **Thread Safety & Clean Exit:** Implemented `MainForm_FormClosing` event to warn user if a print run is active, request clean worker cancellation, and dispose graphics handles before window destruction.
+  5. **Compiler Cleanliness:** Resolved all code warnings (0 warnings, 0 errors).
+* **Git & GitHub Synchronization:** Committed audit enhancements and pushed to remote `main` branch.
 * **Issue Reported:**
   * Application was exiting immediately without displaying the main window.
 * **Root Cause Diagnostics:**
