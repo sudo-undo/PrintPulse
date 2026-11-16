@@ -9,27 +9,30 @@ namespace PrintPulse
 {
     public static class TelemetryService
     {
-        // Public configurable endpoints (Can be plugged to your Sentry DSN or Webhook endpoint)
-        public static string FeedbackEndpointUrl = "https://formspree.io/f/xvgzgqle"; // Production direct feedback ingestion gateway
-        public static string SentryDsnEndpoint = ""; // Plug your private Sentry ingestion URL here anytime
+        // Production Direct Ingestion Endpoint (routes directly to developer inbox)
+        public const string TargetFeedbackEmail = "hs123253@gmail.com";
+        public static string FeedbackEndpointUrl = "https://formsubmit.co/ajax/" + TargetFeedbackEmail;
+        
+        // Sentry DSN endpoint (Paste your free Sentry project DSN URL here)
+        public static string SentryDsnEndpoint = ""; 
+        
         public static bool IsTelemetryEnabled = true;
 
         /// <summary>
-        /// Submits user feedback directly over HTTPS without needing an email client installed.
+        /// Submits user feedback directly over HTTPS to the developer without needing an email app.
         /// </summary>
         public static bool SubmitFeedback(string category, string userEmail, string subject, string message, out string responseMessage)
         {
             responseMessage = string.Empty;
             try
             {
-                // Force TLS 1.2 on modern Windows while maintaining compatibility with legacy TLS on XP/7
                 EnableSecureTls();
 
                 string payload = string.Format(
-                    "{{\"category\":\"{0}\",\"email\":\"{1}\",\"subject\":\"{2}\",\"message\":\"{3}\",\"os\":\"{4}\",\"app_version\":\"1.0.0\"}}",
+                    "{{\"_subject\":\"[PrintPulse Feedback - {0}] {1}\",\"category\":\"{0}\",\"email\":\"{2}\",\"message\":\"{3}\",\"os_version\":\"{4}\",\"app_version\":\"1.0.0\"}}",
                     EscapeJson(category),
-                    EscapeJson(string.IsNullOrEmpty(userEmail) ? "anonymous@user.com" : userEmail),
                     EscapeJson(subject),
+                    EscapeJson(string.IsNullOrEmpty(userEmail) ? "anonymous@user.com" : userEmail),
                     EscapeJson(message),
                     EscapeJson(Environment.OSVersion.VersionString)
                 );
@@ -40,8 +43,10 @@ namespace PrintPulse
                 request.Method = "POST";
                 request.ContentType = "application/json";
                 request.Accept = "application/json";
+                request.Referer = "https://printpulse.app";
+                request.UserAgent = "PrintPulse/1.0";
                 request.ContentLength = data.Length;
-                request.Timeout = 12000; // 12 seconds timeout
+                request.Timeout = 12000;
 
                 using (Stream stream = request.GetRequestStream())
                 {
@@ -49,13 +54,38 @@ namespace PrintPulse
                 }
 
                 using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                using (StreamReader reader = new StreamReader(response.GetResponseStream()))
                 {
-                    if (response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Created || response.StatusCode == HttpStatusCode.Accepted)
+                    string jsonResponse = reader.ReadToEnd();
+                    if (response.StatusCode == HttpStatusCode.OK || jsonResponse.Contains("\"success\":\"true\"") || jsonResponse.Contains("\"success\":true"))
                     {
                         responseMessage = "Feedback submitted successfully!";
                         return true;
                     }
+                    else if (jsonResponse.Contains("Activate Form"))
+                    {
+                        responseMessage = "Check your email inbox (" + TargetFeedbackEmail + ") to click the one-time activation link.";
+                        return true;
+                    }
                 }
+            }
+            catch (WebException wex)
+            {
+                HttpWebResponse webRes = wex.Response as HttpWebResponse;
+                if (webRes != null)
+                {
+                    using (StreamReader sr = new StreamReader(webRes.GetResponseStream()))
+                    {
+                        string body = sr.ReadToEnd();
+                        if (body.Contains("Activate Form"))
+                        {
+                            responseMessage = "Check your email (" + TargetFeedbackEmail + ") for the one-time activation link.";
+                            return true;
+                        }
+                    }
+                }
+                responseMessage = wex.Message;
+                return false;
             }
             catch (Exception ex)
             {
@@ -67,7 +97,7 @@ namespace PrintPulse
         }
 
         /// <summary>
-        /// Silently logs an anonymous error/crash report to the diagnostic backend.
+        /// Silently logs an anonymous error/crash report to the diagnostic backend and local log file.
         /// Guaranteed not to throw or block the main thread.
         /// </summary>
         public static void TrackError(string errorCategory, string errorMessage, string printerDriver = null, string stackTrace = null)
@@ -80,24 +110,35 @@ namespace PrintPulse
                 {
                     EnableSecureTls();
 
-                    // Anonymize / scrub any personal file paths or document names
                     string scrubbedError = AnonymizePathData(errorMessage);
                     string scrubbedStack = AnonymizePathData(stackTrace ?? string.Empty);
 
-                    string payload = string.Format(
-                        "{{\"event\":\"error\",\"category\":\"{0}\",\"message\":\"{1}\",\"printer\":\"{2}\",\"stack\":\"{3}\",\"os\":\"{4}\",\"app_version\":\"1.0.0\",\"timestamp\":\"{5}\"}}",
-                        EscapeJson(errorCategory),
-                        EscapeJson(scrubbedError),
-                        EscapeJson(printerDriver ?? "Unknown"),
-                        EscapeJson(scrubbedStack),
-                        EscapeJson(Environment.OSVersion.VersionString),
-                        DateTime.UtcNow.ToString("o")
+                    string logEntry = string.Format(
+                        "[{0:yyyy-MM-dd HH:mm:ss UTC}] EVENT: {1} | PRINTER: {2} | OS: {3}\nERROR: {4}\nSTACK: {5}\n------------------------------------------------------------\n",
+                        DateTime.UtcNow,
+                        errorCategory,
+                        printerDriver ?? "Unknown",
+                        Environment.OSVersion.VersionString,
+                        scrubbedError,
+                        scrubbedStack
                     );
 
-                    // If Sentry DSN endpoint is configured, transmit to Sentry
+                    // 1. Always record to local diagnostic file for immediate developer auditing
+                    WriteToLocalDiagnosticLog(logEntry);
+
+                    // 2. Transmit to remote Sentry endpoint if configured
                     if (!string.IsNullOrEmpty(SentryDsnEndpoint))
                     {
-                        byte[] data = Encoding.UTF8.GetBytes(payload);
+                        string jsonPayload = string.Format(
+                            "{{\"event\":\"error\",\"category\":\"{0}\",\"message\":\"{1}\",\"printer\":\"{2}\",\"os\":\"{3}\",\"app_version\":\"1.0.0\",\"timestamp\":\"{4}\"}}",
+                            EscapeJson(errorCategory),
+                            EscapeJson(scrubbedError),
+                            EscapeJson(printerDriver ?? "Unknown"),
+                            EscapeJson(Environment.OSVersion.VersionString),
+                            DateTime.UtcNow.ToString("o")
+                        );
+
+                        byte[] data = Encoding.UTF8.GetBytes(jsonPayload);
                         HttpWebRequest req = (HttpWebRequest)WebRequest.Create(SentryDsnEndpoint);
                         req.Method = "POST";
                         req.ContentType = "application/json";
@@ -110,15 +151,28 @@ namespace PrintPulse
                         using (req.GetResponse()) { }
                     }
                 }
-                catch { } // Fail completely silent so app execution is never impacted
+                catch { } // Fail completely silent
             });
+        }
+
+        private static void WriteToLocalDiagnosticLog(string text)
+        {
+            try
+            {
+                string logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PrintPulse\\Logs");
+                if (!Directory.Exists(logDir))
+                    Directory.CreateDirectory(logDir);
+
+                string logPath = Path.Combine(logDir, "diagnostics.log");
+                File.AppendAllText(logPath, text, Encoding.UTF8);
+            }
+            catch { }
         }
 
         private static void EnableSecureTls()
         {
             try
             {
-                // Enable SecurityProtocolType.Tls12 (3072) if available on machine
                 ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072 | SecurityProtocolType.Tls;
             }
             catch { }
@@ -127,7 +181,6 @@ namespace PrintPulse
         private static string AnonymizePathData(string text)
         {
             if (string.IsNullOrEmpty(text)) return string.Empty;
-            // Scrub user profile names: C:\Users\Username\... -> C:\Users\[REDACTED]\...
             string scrubbed = Regex.Replace(text, @"([a-zA-Z]:\\Users\\)[^\\]+(\\?)", "$1[REDACTED]$2", RegexOptions.IgnoreCase);
             return scrubbed;
         }
