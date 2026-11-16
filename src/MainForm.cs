@@ -157,16 +157,12 @@ namespace PrintPulse
             Button btnRemove = CreateModernButton("✕ Remove", Color.FromArgb(241, 245, 249), Color.FromArgb(100, 116, 139), 0, 0, 80, 32);
             btnRemove.Click += (s, e) => RemoveSelectedItem();
 
-            Button btnFeedback = CreateModernButton("💡 Feedback", Color.FromArgb(254, 243, 199), Color.FromArgb(180, 83, 9), 0, 0, 95, 32);
-            btnFeedback.Click += (s, e) => OpenFeedback();
-
             flowTopLeft.Controls.Add(btnAddFiles);
             flowTopLeft.Controls.Add(btnAddFolder);
             flowTopLeft.Controls.Add(btnClear);
             flowTopLeft.Controls.Add(btnMoveUp);
             flowTopLeft.Controls.Add(btnMoveDown);
             flowTopLeft.Controls.Add(btnRemove);
-            flowTopLeft.Controls.Add(btnFeedback);
 
             topBar.Controls.Add(flowTopLeft);
             topBar.Controls.Add(pnlTopRight);
@@ -208,6 +204,10 @@ namespace PrintPulse
             _btnCancel.Enabled = false;
             _btnCancel.Click += (s, e) => CancelBatch();
 
+            Button btnFeedback = CreateModernButton("💬 Feedback", Color.FromArgb(241, 245, 249), Color.FromArgb(100, 116, 139), 0, 0, 95, 42);
+            btnFeedback.Click += (s, e) => OpenFeedback();
+
+            flowBottomRight.Controls.Add(btnFeedback);
             flowBottomRight.Controls.Add(_btnViewReport);
             flowBottomRight.Controls.Add(_btnStart);
             flowBottomRight.Controls.Add(_btnPause);
@@ -812,7 +812,17 @@ namespace PrintPulse
             _selectedItem.DuplexMode = (DuplexPrintMode)_cbDuplexMode.SelectedIndex;
             _selectedItem.NUp = (_cbNUp.SelectedIndex == 2) ? 4 : (_cbNUp.SelectedIndex == 1 ? 2 : 1);
 
+            // Auto-update selected row in queue immediately without needing to drag!
+            if (_lvQueue.SelectedItems.Count > 0)
+            {
+                ListViewItem lvi = _lvQueue.SelectedItems[0];
+                lvi.SubItems[4].Text = _selectedItem.Copies.ToString();
+                lvi.SubItems[5].Text = (_selectedItem.ColorMode == ColorPrintMode.Color) ? "Color" : "B&W";
+                lvi.SubItems[6].Text = (_selectedItem.DuplexMode == DuplexPrintMode.Simplex) ? "1-Sided" : (_selectedItem.DuplexMode == DuplexPrintMode.DuplexLongEdge ? "2-Sided (Long)" : "2-Sided (Short)");
+            }
+
             UpdateSummaryMetrics();
+            RenderPreview();
         }
 
         private void ApplySettingsToAll()

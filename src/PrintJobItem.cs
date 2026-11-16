@@ -98,10 +98,10 @@ namespace PrintPulse
                     Type = DocumentType.Pdf;
                 else if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tiff" || ext == ".tif" || ext == ".gif")
                     Type = DocumentType.Image;
-                else if (ext == ".txt" || ext == ".csv" || ext == ".log" || ext == ".rtf" || ext == ".ini")
+                else if (ext == ".txt" || ext == ".csv" || ext == ".log" || ext == ".rtf" || ext == ".ini" || ext == ".docx" || ext == ".html" || ext == ".htm" || ext == ".xml" || ext == ".json" || ext == ".md" || ext == ".sql")
                     Type = DocumentType.Text;
                 else
-                    Type = DocumentType.Unknown;
+                    Type = DocumentType.Text;
             }
         }
 

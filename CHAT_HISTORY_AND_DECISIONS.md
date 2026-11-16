@@ -125,3 +125,8 @@ This document preserves the complete chronological record of user requests, assi
   * Automatically created the remote repository: https://github.com/sudo-undo/PrintPulse.
   * Linked the local Git project to `origin` and performed initial push to `main` branch.
   * Verified that all subsequent updates will automatically commit and push to `origin/main`.
+* **User Feedback & Queue/Preview/UI Fixes (2026-11-16):**
+  * **Queue Auto-Update on Settings Change:** Updated `MainForm.UpdateSelectedSettings()` to immediately reflect modified Copies, Color Mode, and Duplex Mode in the `ListView` items in real time, without requiring drag-and-drop row reordering.
+  * **Document Preview Support for Non-Images:** Enhanced `DocumentRenderer.cs` to render true visual previews for `.pdf`, `.docx`, `.txt`, `.csv`, `.log`, `.xml`, `.html`, and `.json` documents onto a high-fidelity simulated paper surface with margins, line numbers, and extracted metadata (e.g. PDF title/author, embedded scans, and DOCX paragraphs via a zero-dependency ZIP central directory + Deflate stream extractor compatible with .NET 4.0 Client Profile).
+  * **Relocated Feedback Button:** Removed `btnFeedback` from the main top action toolbar (`flowTopLeft`) and placed it discreetly into the bottom utility status bar (`flowBottomRight`).
+  * **Disk Space Cleared & Rebuild:** Handled C: drive disk space restoration (3.15 GB free), successfully recompiled portable binary `dist/Portable/PrintPulse.exe` and setup installer `dist/Installer/PrintPulse_Setup_v1.0.exe` with zero errors.
