@@ -13,8 +13,8 @@ namespace PrintPulse
         public const string TargetFeedbackEmail = "hs123253@gmail.com";
         public static string FeedbackEndpointUrl = "https://formsubmit.co/ajax/" + TargetFeedbackEmail;
         
-        // Sentry DSN endpoint (Paste your free Sentry project DSN URL here)
-        public static string SentryDsnEndpoint = ""; 
+        // Sentry DSN endpoint
+        public static string SentryDsnEndpoint = "https://628e8b818e6c0337ffa686d9ef422bae@o4512439853449216.ingest.us.sentry.io/4512441183502336"; 
         
         public static bool IsTelemetryEnabled = true;
 
@@ -129,26 +129,44 @@ namespace PrintPulse
                     // 2. Transmit to remote Sentry endpoint if configured
                     if (!string.IsNullOrEmpty(SentryDsnEndpoint))
                     {
-                        string jsonPayload = string.Format(
-                            "{{\"event\":\"error\",\"category\":\"{0}\",\"message\":\"{1}\",\"printer\":\"{2}\",\"os\":\"{3}\",\"app_version\":\"1.0.0\",\"timestamp\":\"{4}\"}}",
-                            EscapeJson(errorCategory),
-                            EscapeJson(scrubbedError),
-                            EscapeJson(printerDriver ?? "Unknown"),
-                            EscapeJson(Environment.OSVersion.VersionString),
-                            DateTime.UtcNow.ToString("o")
-                        );
-
-                        byte[] data = Encoding.UTF8.GetBytes(jsonPayload);
-                        HttpWebRequest req = (HttpWebRequest)WebRequest.Create(SentryDsnEndpoint);
-                        req.Method = "POST";
-                        req.ContentType = "application/json";
-                        req.ContentLength = data.Length;
-                        req.Timeout = 8000;
-                        using (Stream s = req.GetRequestStream())
+                        try
                         {
-                            s.Write(data, 0, data.Length);
+                            Uri uri = new Uri(SentryDsnEndpoint);
+                            string publicKey = uri.UserInfo;
+                            string hostName = uri.Host;
+                            string projectId = uri.AbsolutePath.Trim('/');
+                            string storeUrl = "https://" + hostName + "/api/" + projectId + "/store/";
+
+                            string eventId = Guid.NewGuid().ToString("N");
+                            string timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
+                            string authHeader = "Sentry sentry_version=7, sentry_client=PrintPulse/1.0, sentry_key=" + publicKey;
+
+                            string jsonPayload = string.Format(
+                                "{{\"event_id\":\"{0}\",\"timestamp\":\"{1}\",\"platform\":\"csharp\",\"level\":\"error\",\"logger\":\"PrintPulse\",\"message\":{{\"formatted\":\"[{2}] {3}\"}},\"tags\":{{\"app\":\"PrintPulse\",\"version\":\"1.0.0\",\"category\":\"{2}\",\"printer\":\"{4}\",\"os\":\"{5}\"}},\"extra\":{{\"stack\":\"{6}\"}}}}",
+                                eventId,
+                                timestamp,
+                                EscapeJson(errorCategory),
+                                EscapeJson(scrubbedError),
+                                EscapeJson(printerDriver ?? "Unknown"),
+                                EscapeJson(Environment.OSVersion.VersionString),
+                                EscapeJson(scrubbedStack)
+                            );
+
+                            byte[] data = Encoding.UTF8.GetBytes(jsonPayload);
+                            HttpWebRequest req = (HttpWebRequest)WebRequest.Create(storeUrl);
+                            req.Method = "POST";
+                            req.ContentType = "application/json";
+                            req.Headers.Add("X-Sentry-Auth", authHeader);
+                            req.UserAgent = "PrintPulse/1.0";
+                            req.ContentLength = data.Length;
+                            req.Timeout = 8000;
+                            using (Stream s = req.GetRequestStream())
+                            {
+                                s.Write(data, 0, data.Length);
+                            }
+                            using (req.GetResponse()) { }
                         }
-                        using (req.GetResponse()) { }
+                        catch { }
                     }
                 }
                 catch { } // Fail completely silent

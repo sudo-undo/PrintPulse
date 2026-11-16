@@ -130,3 +130,8 @@ This document preserves the complete chronological record of user requests, assi
   * **Document Preview Support for Non-Images:** Enhanced `DocumentRenderer.cs` to render true visual previews for `.pdf`, `.docx`, `.txt`, `.csv`, `.log`, `.xml`, `.html`, and `.json` documents onto a high-fidelity simulated paper surface with margins, line numbers, and extracted metadata (e.g. PDF title/author, embedded scans, and DOCX paragraphs via a zero-dependency ZIP central directory + Deflate stream extractor compatible with .NET 4.0 Client Profile).
   * **Relocated Feedback Button:** Removed `btnFeedback` from the main top action toolbar (`flowTopLeft`) and placed it discreetly into the bottom utility status bar (`flowBottomRight`).
   * **Disk Space Cleared & Rebuild:** Handled C: drive disk space restoration (3.15 GB free), successfully recompiled portable binary `dist/Portable/PrintPulse.exe` and setup installer `dist/Installer/PrintPulse_Setup_v1.0.exe` with zero errors.
+* **Sentry Error Telemetry Integration (2026-11-16):**
+  * Configured active project DSN: `https://628e8b818e6c0337ffa686d9ef422bae@o4512439853449216.ingest.us.sentry.io/4512441183502336`.
+  * Implemented native Sentry Store API ingestion (`/api/{projectId}/store/`) in `TelemetryService.cs` with `X-Sentry-Auth` client authorization and anonymous PII-redacted payload structure (zero external dependencies, fully compatible with .NET 4.0 Client Profile).
+  * Sent and verified test events in Sentry (Event ID `3bd28719ad4347cdbc1783ebc0de9865`).
+  * Recompiled portable and installer binaries and pushed to GitHub `sudo-undo/PrintPulse`.
