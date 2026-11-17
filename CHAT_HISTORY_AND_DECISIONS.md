@@ -169,3 +169,19 @@ This document preserves the complete chronological record of user requests, assi
   * **Document Preview Empty State:** Replaced the blank grey picture box with a polished placeholder drawing featuring a dashed border and helpful instruction text when no file is selected.
   * **UI Polish & Tooltips:** Added comprehensive hover tooltips to all toolbar and action bar buttons; added dynamic rotation badge `⟲ Rotate (90°)`; added a dismiss button (`✕`) to the Smart Advisor; enlarged `[▶ START PRINT]` (145x42px, emerald green `#10B981`); and added dynamic paper/ink eco-savings calculation to the bottom summary bar.
   * **Binaries Recompiled & Pushed:** Portable executable (148 KB) and standalone installer (161 KB) rebuilt with 0 errors.
+
+
+* **Comprehensive Security Audit, Cyber-Attack Hardening & Vulnerability Mitigation (2026-11-17):**
+  * **Strict Extension Whitelist (`MainForm.cs`):** Replaced blacklist approach with an explicit whitelist of safe document extensions (`.pdf`, `.docx`, `.doc`, `.jpg`, `.jpeg`, `.png`, `.bmp`, `.gif`, `.tif`, `.tiff`, `.txt`, `.csv`, `.log`, `.rtf`, `.xml`, `.html`, `.htm`, `.json`). Mitigated arbitrary file execution, script payloads (`.bat`, `.cmd`, `.vbs`, `.ps1`), screensavers (`.scr`), and executable injection.
+  * **Memory Exhaustion & DoS Defense (`DocumentRenderer.cs`):**
+    * Multi-gigabyte PDF page count memory safety: Capped `ParsePdfPageCount` to stream read up to the first 4 MB and last 1 MB instead of loading entire multi-gigabyte files into memory with `sr.ReadToEnd()`.
+    * Streamed text extraction safety: Capped `ExtractPdfTextLines` to read up to 8 MB via chunked `FileStream` instead of allocating whole files with `File.ReadAllBytes`.
+  * **Zip Bomb & Decompression Bomb Defense (`DocumentRenderer.cs`):**
+    * In DOCX ZIP central directory parsing (`ReadZipEntry`), enforced strict entry caps: uncompressed size capped to 35 MB, compressed size capped to 50 MB, and decompression stream capped to 35 MB.
+    * In PDF Deflate stream decompression, capped output memory stream to 2 MB per stream to prevent memory exhaustion from crafted compressed streams.
+  * **Session State & Integer Overflow Guard (`SessionManager.cs`):** Clamped copies to `[1, 999]` and re-validated page counts via `DocumentRenderer.InspectPageCount` upon session restoration to prevent corrupted state and integer overflow attacks.
+  * **Installer Hardening & Command Injection Mitigation (`SetupInstaller.cs`):**
+    * Drive root and Windows system directory traversal/destruction protection: Rejects destination paths that resolve to drive root (`C:\`) or Windows system directories (`C:\Windows`, `C:\Windows\System32`).
+    * Uninstaller command injection mitigation: Sanitized `cleanDir` by stripping quote characters (`"`) and shell operators (`&`, `|`, `;`, `^`, `%`) from `UninstallString`.
+  * **GDI WinForms ButtonBase Exception Fix (`MainForm.cs`):** Resolved `System.NotSupportedException: ButtonBase controls do not support setting the BorderColor to Transparent` by setting `BorderSize = 0` when `bg == Color.Transparent` and ensuring solid border colors.
+  * **Automated Verification & Binaries:** MSBuild Rebuild passed with 0 errors; portable executable (150 KB) and standalone installer (164 KB) verified running cleanly with zero crashes.

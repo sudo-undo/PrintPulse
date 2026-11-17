@@ -189,6 +189,36 @@ namespace PrintPulseInstaller
             string targetDir = _txtInstallDir.Text.Trim();
             if (string.IsNullOrEmpty(targetDir)) return;
 
+            // Security Hardening: Guard against drive root or system folder destruction
+            try
+            {
+                string fullTarget = Path.GetFullPath(targetDir);
+                string root = Path.GetPathRoot(fullTarget);
+                if (string.Equals(fullTarget.TrimEnd('\\', '/'), root.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
+                {
+                    MessageBox.Show("Cannot install directly to the root of a drive.", "Invalid Installation Path", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                string winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+                string sysDir = Environment.GetFolderPath(Environment.SpecialFolder.System);
+                if (!string.IsNullOrEmpty(winDir) && fullTarget.StartsWith(winDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    MessageBox.Show("Cannot install into Windows system directories.", "Invalid Installation Path", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                if (!string.IsNullOrEmpty(sysDir) && fullTarget.StartsWith(sysDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    MessageBox.Show("Cannot install into Windows system directories.", "Invalid Installation Path", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                targetDir = fullTarget;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Invalid destination path: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
             _btnInstall.Enabled = false;
             _prog.Value = 20;
             _lblStatus.Text = "Creating installation directory...";
@@ -292,6 +322,8 @@ namespace PrintPulseInstaller
         {
             try
             {
+                // Security Hardening: Prevent command injection in uninstaller registry entry
+                string cleanDir = installDir.Replace("\"", "").Replace("&", "").Replace("|", "").Replace(";", "").Replace("^", "").Replace("%", "").Trim();
                 using (RegistryKey key = Registry.CurrentUser.CreateSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PrintPulse"))
                 {
                     if (key != null)
@@ -300,8 +332,8 @@ namespace PrintPulseInstaller
                         key.SetValue("DisplayVersion", "1.1.0");
                         key.SetValue("Publisher", "PrintPulse Technologies");
                         key.SetValue("DisplayIcon", exePath);
-                        key.SetValue("InstallLocation", installDir);
-                        key.SetValue("UninstallString", "cmd.exe /c rd /s /q \"" + installDir + "\"");
+                        key.SetValue("InstallLocation", cleanDir);
+                        key.SetValue("UninstallString", "cmd.exe /c rd /s /q \"" + cleanDir + "\"");
                     }
                 }
             }

@@ -1160,11 +1160,17 @@ namespace PrintPulse
             }
         }
 
+        private static readonly HashSet<string> SafeDocumentExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".pdf", ".docx", ".doc", ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff",
+            ".txt", ".csv", ".log", ".rtf", ".xml", ".html", ".htm", ".json"
+        };
+
         private void AddSingleFile(string path)
         {
-            if (!File.Exists(path)) return;
-            string ext = Path.GetExtension(path).ToLowerInvariant();
-            if (ext == ".exe" || ext == ".dll" || ext == ".zip" || ext == ".rar" || ext == ".7z") return;
+            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+            string ext = Path.GetExtension(path);
+            if (string.IsNullOrEmpty(ext) || !SafeDocumentExtensions.Contains(ext)) return;
 
             PrintJobItem item = new PrintJobItem(path);
             item.TotalPages = DocumentRenderer.InspectPageCount(item);

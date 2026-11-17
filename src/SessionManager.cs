@@ -69,7 +69,8 @@ namespace PrintPulse
                     if (parts.Length > 0 && File.Exists(parts[0]))
                     {
                         PrintJobItem item = new PrintJobItem(parts[0]);
-                        if (parts.Length > 1) { int c; if (int.TryParse(parts[1], out c)) item.Copies = c; }
+                        item.TotalPages = DocumentRenderer.InspectPageCount(item);
+                        if (parts.Length > 1) { int c; if (int.TryParse(parts[1], out c)) item.Copies = Math.Max(1, Math.Min(999, c)); }
                         if (parts.Length > 2) { int cm; if (int.TryParse(parts[2], out cm)) item.ColorMode = (ColorPrintMode)cm; }
                         if (parts.Length > 3) { int dm; if (int.TryParse(parts[3], out dm)) item.DuplexMode = (DuplexPrintMode)dm; }
                         if (parts.Length > 4) { int rm; if (int.TryParse(parts[4], out rm)) item.RangeMode = (PageRangeMode)rm; }

@@ -67,15 +67,36 @@ namespace PrintPulse
             try
             {
                 using (FileStream fs = new FileStream(pdfPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                using (StreamReader sr = new StreamReader(fs, Encoding.ASCII))
                 {
-                    string content = sr.ReadToEnd();
+                    // Memory safety: Read up to first 4 MB (where page trees usually reside)
+                    int bytesToRead = (int)Math.Min(fs.Length, 4 * 1024 * 1024);
+                    byte[] buffer = new byte[bytesToRead];
+                    fs.Read(buffer, 0, bytesToRead);
+                    string content = Encoding.ASCII.GetString(buffer);
+
                     Match match = Regex.Match(content, @"/Type\s*/Pages\b[^>]*?/Count\s+(\d+)", RegexOptions.Singleline | RegexOptions.IgnoreCase);
                     if (match.Success && match.Groups.Count > 1)
                     {
                         int count;
                         if (int.TryParse(match.Groups[1].Value, out count) && count > 0)
                             return Math.Min(10000, count);
+                    }
+
+                    // If not found in first 4MB, read the last 1MB (where PDF trailer lives)
+                    if (fs.Length > bytesToRead)
+                    {
+                        long tailStart = Math.Max(0, fs.Length - (1024 * 1024));
+                        fs.Seek(tailStart, SeekOrigin.Begin);
+                        byte[] tailBuf = new byte[fs.Length - tailStart];
+                        fs.Read(tailBuf, 0, tailBuf.Length);
+                        string tailContent = Encoding.ASCII.GetString(tailBuf);
+                        Match tailMatch = Regex.Match(tailContent, @"/Type\s*/Pages\b[^>]*?/Count\s+(\d+)", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+                        if (tailMatch.Success && tailMatch.Groups.Count > 1)
+                        {
+                            int count;
+                            if (int.TryParse(tailMatch.Groups[1].Value, out count) && count > 0)
+                                return Math.Min(10000, count);
+                        }
                     }
 
                     MatchCollection matches = Regex.Matches(content, @"/Type\s*/Page\b", RegexOptions.IgnoreCase);
@@ -428,6 +449,9 @@ namespace PrintPulse
 
                     if (string.Equals(name, entryName, StringComparison.OrdinalIgnoreCase))
                     {
+                        // Security: Zip Bomb defense (cap uncompressed size to 35 MB, comp size to 50 MB)
+                        if (uncompSize > 35 * 1024 * 1024 || compSize > 50 * 1024 * 1024) return null;
+
                         fs.Seek(localHeaderOffset, SeekOrigin.Begin);
                         uint localSig = br.ReadUInt32();
                         if (localSig != 0x04034b50) return null;
@@ -445,7 +469,8 @@ namespace PrintPulse
                         {
                             using (DeflateStream ds = new DeflateStream(fs, CompressionMode.Decompress, true))
                             {
-                                MemoryStream ms = new MemoryStream((int)uncompSize);
+                                int capacity = Math.Min(10 * 1024 * 1024, (int)uncompSize);
+                                MemoryStream ms = new MemoryStream(capacity);
                                 byte[] temp = new byte[8192];
                                 int read;
                                 long totalRead = 0;
@@ -453,6 +478,7 @@ namespace PrintPulse
                                 {
                                     ms.Write(temp, 0, read);
                                     totalRead += read;
+                                    if (totalRead > 35 * 1024 * 1024) break; // Hard safety limit
                                 }
                                 return ms.ToArray();
                             }
@@ -472,7 +498,14 @@ namespace PrintPulse
 
             try
             {
-                byte[] bytes = File.ReadAllBytes(pdfPath);
+                // Memory DoS safety: Stream read up to 8 MB instead of allocating entire multi-GB files
+                byte[] bytes;
+                using (FileStream fs = new FileStream(pdfPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                {
+                    int bytesToRead = (int)Math.Min(fs.Length, 8 * 1024 * 1024);
+                    bytes = new byte[bytesToRead];
+                    fs.Read(bytes, 0, bytesToRead);
+                }
                 string ascii = Encoding.ASCII.GetString(bytes);
 
                 Match mTitle = Regex.Match(ascii, @"/Title\s*\(([^)]+)\)", RegexOptions.IgnoreCase);
@@ -505,7 +538,16 @@ namespace PrintPulse
                             using (DeflateStream ds = new DeflateStream(ms, CompressionMode.Decompress))
                             using (MemoryStream outMs = new MemoryStream())
                             {
-                                ds.CopyTo(outMs);
+                                // Bomb safety: Cap decompression to 2 MB per stream
+                                byte[] tempBuf = new byte[4096];
+                                int read;
+                                long totalDecomp = 0;
+                                while ((read = ds.Read(tempBuf, 0, tempBuf.Length)) > 0)
+                                {
+                                    outMs.Write(tempBuf, 0, read);
+                                    totalDecomp += read;
+                                    if (totalDecomp > 2 * 1024 * 1024) break;
+                                }
                                 string decompressed = Encoding.UTF8.GetString(outMs.ToArray());
 
                                 MatchCollection textMatches = Regex.Matches(decompressed, @"\(([^\\)]{2,})\)");
