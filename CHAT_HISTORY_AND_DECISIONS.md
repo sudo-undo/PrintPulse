@@ -185,3 +185,13 @@ This document preserves the complete chronological record of user requests, assi
     * Uninstaller command injection mitigation: Sanitized `cleanDir` by stripping quote characters (`"`) and shell operators (`&`, `|`, `;`, `^`, `%`) from `UninstallString`.
   * **GDI WinForms ButtonBase Exception Fix (`MainForm.cs`):** Resolved `System.NotSupportedException: ButtonBase controls do not support setting the BorderColor to Transparent` by setting `BorderSize = 0` when `bg == Color.Transparent` and ensuring solid border colors.
   * **Automated Verification & Binaries:** MSBuild Rebuild passed with 0 errors; portable executable (150 KB) and standalone installer (164 KB) verified running cleanly with zero crashes.
+
+
+* **Self-Upgradable Updates & Notification Engine (2026-11-18):**
+  * **Native Update Engine (`UpdateManager.cs`):** Built zero-dependency updater communicating directly with the GitHub Releases API (`sudo-undo/PrintPulse/releases/latest`) over TLS 1.2. Compares semantic remote tags (e.g. `v1.2.0`) against `CurrentVersion` (`1.1.0`), extracts markdown release notes, and locates binary download assets.
+  * **In-App Update Notification Banner (`MainForm.cs`):** Added a non-intrusive soft-indigo notification banner docked above the print queue. Features `[Update Now]`, `[What's New]` (opens browser to release page), and `[✕]` (dismiss button).
+  * **Seamless 1-Click Update Hand-Off:**
+    * **Portable Mode:** Downloads new executable to `%TEMP%` with real-time download progress display (`0% - 100%`), then launches a silent cmd handoff (`ping 127.0.0.1 -n 3 > nul & copy /y ... & start ...`) that atomically replaces `PrintPulse.exe` once the old process exits and restarts the new build.
+    * **Installer Mode:** Automatically downloads the latest `PrintPulse_Setup_vX.X.exe` and launches the setup wizard while cleanly exiting the current instance.
+  * **Advanced Options Modal Integration (`AdvancedOptionsForm.cs`):** Added Group 6: `"🔄 Software Updates"` with a manual `[Check for Updates Now]` button and a toggle for `[✓] Check for updates automatically on startup` (persisted to `%LOCALAPPDATA%\PrintPulse\update_settings.cfg`).
+  * **Binaries Rebuilt & Verified:** MSBuild release rebuild passed with 0 errors (portable executable: 154 KB, setup installer: 168 KB).

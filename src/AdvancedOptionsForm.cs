@@ -101,7 +101,7 @@ namespace PrintPulse
                 Dock = DockStyle.Fill,
                 Padding = new Padding(15, 10, 15, 15),
                 AutoScroll = true,
-                AutoScrollMinSize = new Size(640, 560),
+                AutoScrollMinSize = new Size(640, 640),
                 BackColor = Color.FromArgb(248, 250, 252)
             };
 
@@ -235,6 +235,53 @@ namespace PrintPulse
             };
             gbPdf.Controls.Add(btnExportPdf);
             content.Controls.Add(gbPdf);
+            y += 88;
+
+            // Group 6: Software Updates & Upgrades
+            GroupBox gbUpdates = CreateGroupBox("🔄 Software Updates", 15, y, 650, 75);
+            CheckBox chkAutoUpdate = new CheckBox
+            {
+                Text = "Check for updates automatically on startup",
+                Location = new Point(20, 28),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9.5f),
+                Checked = UpdateManager.CheckOnStartup
+            };
+            chkAutoUpdate.CheckedChanged += delegate { UpdateManager.CheckOnStartup = chkAutoUpdate.Checked; };
+            gbUpdates.Controls.Add(chkAutoUpdate);
+
+            Button btnCheckUpdate = CreateStyledButton("Check for Updates Now", 430, 24, 200, 32, Color.White, Color.FromArgb(51, 65, 85));
+            btnCheckUpdate.Click += delegate
+            {
+                btnCheckUpdate.Text = "Checking...";
+                btnCheckUpdate.Enabled = false;
+                UpdateManager.CheckForUpdatesAsync(this, info =>
+                {
+                    btnCheckUpdate.Text = "Check for Updates Now";
+                    btnCheckUpdate.Enabled = true;
+                    if (info.IsUpdateAvailable)
+                    {
+                        DialogResult dr = MessageBox.Show(
+                            string.Format("A new version is available: v{0}\n(Current version: v{1})\n\nWould you like to download and install this update now?", info.LatestVersion, info.CurrentVersion),
+                            "Update Available", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                        if (dr == DialogResult.Yes)
+                        {
+                            if (_mainForm != null) _mainForm.PromptAndStartUpdate(info);
+                            this.Close();
+                        }
+                    }
+                    else if (!string.IsNullOrEmpty(info.ErrorMessage))
+                    {
+                        MessageBox.Show("Could not check for updates: " + info.ErrorMessage, "Update Check", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                    else
+                    {
+                        MessageBox.Show(string.Format("You are running the latest version of PrintPulse (v{0})!", info.CurrentVersion), "Up to Date", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                }, isUserInitiated: true);
+            };
+            gbUpdates.Controls.Add(btnCheckUpdate);
+            content.Controls.Add(gbUpdates);
 
             // Add in order so Docking works without overlapping:
             this.Controls.Add(content);

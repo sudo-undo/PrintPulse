@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
@@ -28,6 +29,10 @@ namespace PrintPulse
         private Label _lblAdvisorText;
         private Button _btnAdvisorApply;
         private Action _advisorApplyAction;
+        private Panel _pnlUpdateBanner;
+        private Label _lblUpdateText;
+        private Button _btnUpdateNow;
+        private UpdateInfo _pendingUpdate;
         private ToolTip _toolTip;
 
         // UI Controls - Right Preview
@@ -102,6 +107,10 @@ namespace PrintPulse
                     }
                     RestorePreviousSession();
                     TelemetryService.TrackSessionStart();
+                    if (UpdateManager.CheckOnStartup)
+                    {
+                        UpdateManager.CheckForUpdatesAsync(this, OnStartupUpdateCheckResult, false);
+                    }
                 }
                 catch { }
             };
@@ -373,6 +382,55 @@ namespace PrintPulse
             _pnlSmartAdvisor.Controls.Add(_btnAdvisorApply);
             _pnlSmartAdvisor.Controls.Add(btnDismissAdvisor);
 
+            // Software Update Notification Banner
+            _pnlUpdateBanner = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 40,
+                BackColor = Color.FromArgb(238, 242, 255),
+                Visible = false,
+                Padding = new Padding(10, 6, 10, 6)
+            };
+
+            _lblUpdateText = new Label
+            {
+                Text = "✨ A new version of PrintPulse is available!",
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(67, 56, 202),
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            _btnUpdateNow = CreateModernButton("Update Now", Color.FromArgb(79, 70, 229), Color.White, 0, 0, 95, 26);
+            _btnUpdateNow.Dock = DockStyle.Right;
+            _btnUpdateNow.Click += delegate
+            {
+                if (_pendingUpdate != null)
+                {
+                    PromptAndStartUpdate(_pendingUpdate);
+                }
+            };
+
+            Button btnWhatsNew = CreateModernButton("What's New", Color.FromArgb(224, 231, 255), Color.FromArgb(67, 56, 202), 0, 0, 85, 26);
+            btnWhatsNew.Dock = DockStyle.Right;
+            btnWhatsNew.Click += delegate
+            {
+                if (_pendingUpdate != null && !string.IsNullOrEmpty(_pendingUpdate.ReleasePageUrl))
+                {
+                    try { Process.Start(_pendingUpdate.ReleasePageUrl); } catch { }
+                }
+            };
+
+            Button btnDismissUpdate = CreateModernButton("✕", Color.FromArgb(238, 242, 255), Color.FromArgb(67, 56, 202), 0, 0, 26, 26);
+            btnDismissUpdate.Dock = DockStyle.Right;
+            btnDismissUpdate.FlatAppearance.BorderSize = 0;
+            btnDismissUpdate.Click += delegate { _pnlUpdateBanner.Visible = false; };
+
+            _pnlUpdateBanner.Controls.Add(_lblUpdateText);
+            _pnlUpdateBanner.Controls.Add(_btnUpdateNow);
+            _pnlUpdateBanner.Controls.Add(btnWhatsNew);
+            _pnlUpdateBanner.Controls.Add(btnDismissUpdate);
+
             Panel pnlQueueHeader = new Panel
             {
                 Dock = DockStyle.Top,
@@ -518,6 +576,7 @@ namespace PrintPulse
             pnlQueue.Controls.Add(_pnlEmptyState);
             pnlQueue.Controls.Add(_lvQueue);
             pnlQueue.Controls.Add(_pnlSmartAdvisor);
+            pnlQueue.Controls.Add(_pnlUpdateBanner);
             pnlQueue.Controls.Add(pnlQueueHeader);
             _split.Panel1.Controls.Add(pnlQueue);
 
@@ -754,6 +813,41 @@ namespace PrintPulse
                     _lvQueue.Items[0].Selected = true;
                 }
             }
+        }
+
+        private void OnStartupUpdateCheckResult(UpdateInfo info)
+        {
+            if (info != null && info.IsUpdateAvailable)
+            {
+                _pendingUpdate = info;
+                _lblUpdateText.Text = string.Format("✨ PrintPulse v{0} is available! (Current: v{1})", info.LatestVersion, info.CurrentVersion);
+                _pnlUpdateBanner.Visible = true;
+            }
+        }
+
+        public void PromptAndStartUpdate(UpdateInfo info)
+        {
+            _pendingUpdate = info;
+            _lblUpdateText.Text = string.Format("Downloading PrintPulse v{0}... 0%", info.LatestVersion);
+            _btnUpdateNow.Enabled = false;
+            _pnlUpdateBanner.Visible = true;
+
+            UpdateManager.DownloadAndApplyUpdate(this, info,
+                progress =>
+                {
+                    _lblUpdateText.Text = string.Format("Downloading PrintPulse v{0}... {1}%", info.LatestVersion, progress);
+                },
+                completeMsg =>
+                {
+                    _lblUpdateText.Text = "Update ready. Restarting...";
+                },
+                errorMsg =>
+                {
+                    _btnUpdateNow.Enabled = true;
+                    _lblUpdateText.Text = "Update failed: " + errorMsg;
+                    MessageBox.Show(errorMsg, "Update Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            );
         }
 
         private void CheckSmartAdvisor(PrintJobItem item)

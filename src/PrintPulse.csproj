@@ -52,6 +52,7 @@
     <Compile Include="SessionManager.cs" />
     <Compile Include="WatchFolderService.cs" />
     <Compile Include="AdvancedOptionsForm.cs" />
+    <Compile Include="UpdateManager.cs" />
     <Compile Include="MainForm.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
