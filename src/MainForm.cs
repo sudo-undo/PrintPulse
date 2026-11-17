@@ -364,7 +364,7 @@ namespace PrintPulse
                 }
             };
 
-            Button btnDismissAdvisor = CreateModernButton("✕", Color.Transparent, Color.FromArgb(146, 64, 14), 0, 0, 26, 26);
+            Button btnDismissAdvisor = CreateModernButton("✕", Color.FromArgb(254, 243, 199), Color.FromArgb(146, 64, 14), 0, 0, 26, 26);
             btnDismissAdvisor.Dock = DockStyle.Right;
             btnDismissAdvisor.FlatAppearance.BorderSize = 0;
             btnDismissAdvisor.Click += delegate { _pnlSmartAdvisor.Visible = false; };
@@ -1792,8 +1792,15 @@ namespace PrintPulse
                 Font = new Font("Segoe UI", 9F, FontStyle.Regular),
                 Cursor = Cursors.Hand
             };
-            btn.FlatAppearance.BorderSize = 1;
-            btn.FlatAppearance.BorderColor = (bg == Color.White || bg == Color.FromArgb(241, 245, 249)) ? Color.FromArgb(203, 213, 225) : bg;
+            if (bg == Color.Transparent || bg.A == 0)
+            {
+                btn.FlatAppearance.BorderSize = 0;
+            }
+            else
+            {
+                btn.FlatAppearance.BorderSize = 1;
+                btn.FlatAppearance.BorderColor = (bg == Color.White || bg == Color.FromArgb(241, 245, 249)) ? Color.FromArgb(203, 213, 225) : bg;
+            }
             return btn;
         }
     }
