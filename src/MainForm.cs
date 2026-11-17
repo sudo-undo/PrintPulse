@@ -22,10 +22,13 @@ namespace PrintPulse
 
         // UI Controls - Left Queue
         private ListView _lvQueue;
+        private Label _lblQueueTitle;
+        private Panel _pnlEmptyState;
         private Panel _pnlSmartAdvisor;
         private Label _lblAdvisorText;
         private Button _btnAdvisorApply;
         private Action _advisorApplyAction;
+        private ToolTip _toolTip;
 
         // UI Controls - Right Preview
         private PictureBox _pbPreview;
@@ -179,22 +182,23 @@ namespace PrintPulse
                 BackColor = Color.Transparent
             };
 
-            Button btnAddFiles = CreateModernButton("+ Add Files", Color.FromArgb(79, 70, 229), Color.White, 0, 0, 95, 32);
+            Button btnAddFiles = CreateModernButton("+ Add Files", Color.FromArgb(79, 70, 229), Color.White, 0, 0, 105, 34);
+            btnAddFiles.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             btnAddFiles.Click += delegate { AddFilesDialog(); };
 
-            Button btnAddFolder = CreateModernButton("+ Folder", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 0, 0, 75, 32);
+            Button btnAddFolder = CreateModernButton("📁 + Folder", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 0, 0, 95, 34);
             btnAddFolder.Click += delegate { AddFolderDialog(); };
 
-            Button btnClear = CreateModernButton("Clear", Color.FromArgb(241, 245, 249), Color.FromArgb(225, 29, 72), 0, 0, 60, 32);
+            Button btnClear = CreateModernButton("🗑 Clear", Color.FromArgb(241, 245, 249), Color.FromArgb(225, 29, 72), 0, 0, 75, 34);
             btnClear.Click += delegate { ClearQueue(); };
 
-            Button btnMoveUp = CreateModernButton("▲ Up", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 0, 0, 60, 32);
+            Button btnMoveUp = CreateModernButton("▲ Up", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 0, 0, 65, 34);
             btnMoveUp.Click += delegate { MoveSelectedItem(-1); };
 
-            Button btnMoveDown = CreateModernButton("▼ Down", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 0, 0, 70, 32);
+            Button btnMoveDown = CreateModernButton("▼ Down", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 0, 0, 75, 34);
             btnMoveDown.Click += delegate { MoveSelectedItem(1); };
 
-            Button btnRemove = CreateModernButton("✕ Remove", Color.FromArgb(241, 245, 249), Color.FromArgb(100, 116, 139), 0, 0, 80, 32);
+            Button btnRemove = CreateModernButton("✕ Remove", Color.FromArgb(241, 245, 249), Color.FromArgb(100, 116, 139), 0, 0, 85, 34);
             btnRemove.Click += delegate { RemoveSelectedItem(); };
 
             flowTopLeft.Controls.Add(btnAddFiles);
@@ -206,6 +210,20 @@ namespace PrintPulse
 
             topBar.Controls.Add(flowTopLeft);
             topBar.Controls.Add(pnlTopRight);
+
+            // Tooltips
+            _toolTip = new ToolTip();
+            _toolTip.AutoPopDelay = 5000;
+            _toolTip.InitialDelay = 350;
+            _toolTip.ReshowDelay = 200;
+
+            _toolTip.SetToolTip(btnAddFiles, "Add files to print (PDF, Word DOCX, text files, or images)");
+            _toolTip.SetToolTip(btnAddFolder, "Add all supported documents from a folder into the queue");
+            _toolTip.SetToolTip(btnClear, "Clear all documents from the queue");
+            _toolTip.SetToolTip(btnMoveUp, "Move selected document earlier in the print sequence");
+            _toolTip.SetToolTip(btnMoveDown, "Move selected document later in the print sequence");
+            _toolTip.SetToolTip(btnRemove, "Remove selected file from the queue");
+            _toolTip.SetToolTip(btnRefreshPrinters, "Scan and refresh installed Windows printers");
 
             // =========================================================================
             // 2. BOTTOM ACTION BAR
@@ -221,7 +239,7 @@ namespace PrintPulse
             FlowLayoutPanel flowBottomRight = new FlowLayoutPanel
             {
                 Dock = DockStyle.Right,
-                Width = 630,
+                Width = 640,
                 FlowDirection = FlowDirection.RightToLeft,
                 Padding = new Padding(0, 4, 0, 0),
                 BackColor = Color.Transparent
@@ -231,8 +249,8 @@ namespace PrintPulse
             _btnViewReport.Enabled = false;
             _btnViewReport.Click += delegate { ShowReport(); };
 
-            _btnStart = CreateModernButton("▶ START PRINT", Color.FromArgb(16, 185, 129), Color.White, 0, 0, 135, 42);
-            _btnStart.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+            _btnStart = CreateModernButton("▶ START PRINT", Color.FromArgb(16, 185, 129), Color.White, 0, 0, 145, 42);
+            _btnStart.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
             _btnStart.Click += delegate { StartBatch(); };
 
             _btnPause = CreateModernButton("❚❚ Pause", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 0, 0, 85, 42);
@@ -248,6 +266,13 @@ namespace PrintPulse
 
             Button btnFeedback = CreateModernButton("💬 Feedback", Color.FromArgb(241, 245, 249), Color.FromArgb(100, 116, 139), 0, 0, 95, 42);
             btnFeedback.Click += delegate { OpenFeedback(); };
+
+            _toolTip.SetToolTip(_btnStart, "Launch sequential batch printing on the target printer");
+            _toolTip.SetToolTip(_btnPause, "Temporarily pause print spooling");
+            _toolTip.SetToolTip(_btnCancel, "Stop batch printing immediately");
+            _toolTip.SetToolTip(_btnViewReport, "View print audit report and cost receipt");
+            _toolTip.SetToolTip(btnAdvanced, "Open Advanced Options (Presets, Separators, Watch Folder, Merged PDF)");
+            _toolTip.SetToolTip(btnFeedback, "Send feedback or feature suggestions directly to developers");
 
             flowBottomRight.Controls.Add(btnFeedback);
             flowBottomRight.Controls.Add(btnAdvanced);
@@ -339,8 +364,14 @@ namespace PrintPulse
                 }
             };
 
+            Button btnDismissAdvisor = CreateModernButton("✕", Color.Transparent, Color.FromArgb(146, 64, 14), 0, 0, 26, 26);
+            btnDismissAdvisor.Dock = DockStyle.Right;
+            btnDismissAdvisor.FlatAppearance.BorderSize = 0;
+            btnDismissAdvisor.Click += delegate { _pnlSmartAdvisor.Visible = false; };
+
             _pnlSmartAdvisor.Controls.Add(_lblAdvisorText);
             _pnlSmartAdvisor.Controls.Add(_btnAdvisorApply);
+            _pnlSmartAdvisor.Controls.Add(btnDismissAdvisor);
 
             Panel pnlQueueHeader = new Panel
             {
@@ -350,9 +381,9 @@ namespace PrintPulse
                 Padding = new Padding(10, 3, 10, 3)
             };
 
-            Label lblQueueHeader = new Label
+            _lblQueueTitle = new Label
             {
-                Text = "PRINT QUEUE (DRAG TO REORDER)",
+                Text = "PRINT QUEUE (0 Files)",
                 Font = new Font("Segoe UI", 8F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(100, 116, 139),
                 Dock = DockStyle.Left,
@@ -381,7 +412,7 @@ namespace PrintPulse
             btnSortMenu.Click += delegate { cmsSort.Show(btnSortMenu, new Point(0, btnSortMenu.Height)); };
 
             pnlQueueHeader.Controls.Add(btnSortMenu);
-            pnlQueueHeader.Controls.Add(lblQueueHeader);
+            pnlQueueHeader.Controls.Add(_lblQueueTitle);
 
             _lvQueue = new ListView
             {
@@ -391,10 +422,11 @@ namespace PrintPulse
                 GridLines = true,
                 CheckBoxes = true,
                 HideSelection = false,
-                AllowDrop = true
+                AllowDrop = true,
+                ShowItemToolTips = true
             };
             _lvQueue.Columns.Add("", 28);
-            _lvQueue.Columns.Add("#", 32);
+            _lvQueue.Columns.Add("#", 42);
             _lvQueue.Columns.Add("File Name", 190);
             _lvQueue.Columns.Add("Pages", 50);
             _lvQueue.Columns.Add("Copies", 50);
@@ -407,10 +439,83 @@ namespace PrintPulse
             _lvQueue.ColumnClick += LvQueue_ColumnClick;
             _lvQueue.ItemCheck += LvQueue_ItemCheck;
             _lvQueue.ItemDrag += LvQueue_ItemDrag;
+            _lvQueue.MouseMove += LvQueue_MouseMove;
+            _lvQueue.MouseLeave += LvQueue_MouseLeave;
             _lvQueue.DragEnter += delegate(object s, DragEventArgs e) { e.Effect = DragDropEffects.Move; };
             _lvQueue.DragOver += LvQueue_DragOver;
             _lvQueue.DragDrop += LvQueue_DragDrop;
 
+            // Empty state overlay for initial launch / empty queue
+            _pnlEmptyState = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Visible = true,
+                AllowDrop = true
+            };
+            _pnlEmptyState.DragEnter += MainForm_DragEnter;
+            _pnlEmptyState.DragDrop += MainForm_DragDrop;
+
+            Label lblEmptyIcon = new Label
+            {
+                Text = "📄",
+                Font = new Font("Segoe UI", 32F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(148, 163, 184),
+                Dock = DockStyle.Top,
+                Height = 55,
+                TextAlign = ContentAlignment.BottomCenter
+            };
+            Label lblEmptyMain = new Label
+            {
+                Text = "No Documents in Print Queue",
+                Font = new Font("Segoe UI", 11.5F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                Dock = DockStyle.Top,
+                Height = 28,
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            Label lblEmptySub = new Label
+            {
+                Text = "Drag & drop PDF, Word DOCX, text files, or images here\nor click the button below to add documents.",
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(100, 116, 139),
+                Dock = DockStyle.Top,
+                Height = 38,
+                TextAlign = ContentAlignment.TopCenter
+            };
+            Button btnEmptyAdd = CreateModernButton("+ Add Files to Print", Color.FromArgb(79, 70, 229), Color.White, 0, 0, 160, 34);
+            btnEmptyAdd.Click += delegate { AddFilesDialog(); };
+
+            Panel pnlEmptyBtn = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 44,
+                BackColor = Color.Transparent
+            };
+            pnlEmptyBtn.Controls.Add(btnEmptyAdd);
+            pnlEmptyBtn.Resize += delegate
+            {
+                btnEmptyAdd.Location = new Point((pnlEmptyBtn.Width - btnEmptyAdd.Width) / 2, 4);
+            };
+
+            Panel pnlEmptyCenter = new Panel
+            {
+                Width = 420,
+                Height = 180,
+                BackColor = Color.Transparent
+            };
+            pnlEmptyCenter.Controls.Add(pnlEmptyBtn);
+            pnlEmptyCenter.Controls.Add(lblEmptySub);
+            pnlEmptyCenter.Controls.Add(lblEmptyMain);
+            pnlEmptyCenter.Controls.Add(lblEmptyIcon);
+
+            _pnlEmptyState.Controls.Add(pnlEmptyCenter);
+            _pnlEmptyState.Resize += delegate
+            {
+                pnlEmptyCenter.Location = new Point((_pnlEmptyState.Width - pnlEmptyCenter.Width) / 2, Math.Max(20, (_pnlEmptyState.Height - pnlEmptyCenter.Height) / 2));
+            };
+
+            pnlQueue.Controls.Add(_pnlEmptyState);
             pnlQueue.Controls.Add(_lvQueue);
             pnlQueue.Controls.Add(_pnlSmartAdvisor);
             pnlQueue.Controls.Add(pnlQueueHeader);
@@ -1082,7 +1187,7 @@ namespace PrintPulse
                 PrintJobItem item = _queue[i];
                 ListViewItem lvi = new ListViewItem("");
                 lvi.Checked = item.IsEnabled;
-                lvi.SubItems.Add((i + 1).ToString());
+                lvi.SubItems.Add("⋮⋮ " + (i + 1));
                 lvi.SubItems.Add(item.FileName);
                 lvi.SubItems.Add(item.TotalPages.ToString());
                 lvi.SubItems.Add(item.Copies.ToString());
@@ -1091,6 +1196,7 @@ namespace PrintPulse
                 lvi.SubItems.Add(item.LayoutMode == PageLayoutMode.OneUp ? "1-Up" : (item.LayoutMode == PageLayoutMode.TwoUp ? "2-Up" : (item.LayoutMode == PageLayoutMode.FourUp ? "4-Up" : "Booklet")));
                 lvi.SubItems.Add(item.Status.ToString());
                 lvi.Tag = item;
+                lvi.ToolTipText = "Click and drag to reorder print sequence";
 
                 if (item.Status == PrintItemStatus.Printing)
                     lvi.BackColor = Color.FromArgb(238, 242, 255);
@@ -1115,6 +1221,17 @@ namespace PrintPulse
             }
 
             _lvQueue.EndUpdate();
+
+            if (_lblQueueTitle != null)
+            {
+                _lblQueueTitle.Text = string.Format("PRINT QUEUE ({0} {1})", _queue.Count, _queue.Count == 1 ? "File" : "Files");
+            }
+
+            if (_pnlEmptyState != null)
+            {
+                _pnlEmptyState.Visible = (_queue.Count == 0);
+                if (_pnlEmptyState.Visible) _pnlEmptyState.BringToFront();
+            }
         }
 
         private void LvQueue_SelectedIndexChanged(object sender, EventArgs e)
@@ -1178,6 +1295,24 @@ namespace PrintPulse
             _draggedItemIndex = -1;
         }
 
+        private void LvQueue_MouseMove(object sender, MouseEventArgs e)
+        {
+            ListViewItem item = _lvQueue.GetItemAt(e.X, e.Y);
+            if (item != null)
+            {
+                _lvQueue.Cursor = Cursors.SizeAll;
+            }
+            else
+            {
+                _lvQueue.Cursor = Cursors.Default;
+            }
+        }
+
+        private void LvQueue_MouseLeave(object sender, EventArgs e)
+        {
+            _lvQueue.Cursor = Cursors.Default;
+        }
+
         private void MoveSelectedItem(int direction)
         {
             if (_lvQueue.SelectedIndices.Count == 0) return;
@@ -1231,12 +1366,40 @@ namespace PrintPulse
 
         private void RenderPreview()
         {
-            if (_selectedItem == null) return;
-
             int targetW = _pbPreview.Width > 50 ? _pbPreview.Width - 16 : 380;
             int targetH = _pbPreview.Height > 50 ? _pbPreview.Height - 16 : 420;
 
             if (_pbPreview.Image != null) _pbPreview.Image.Dispose();
+
+            if (_selectedItem == null)
+            {
+                Bitmap bmp = new Bitmap(targetW, targetH);
+                using (Graphics g = Graphics.FromImage(bmp))
+                {
+                    g.Clear(Color.FromArgb(241, 245, 249));
+                    using (Pen p = new Pen(Color.FromArgb(203, 213, 225), 2))
+                    {
+                        p.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                        g.DrawRectangle(p, 25, 25, targetW - 50, targetH - 50);
+                    }
+                    using (Font f1 = new Font("Segoe UI", 11F, FontStyle.Bold))
+                    using (Font f2 = new Font("Segoe UI", 8.5F, FontStyle.Regular))
+                    using (Brush b1 = new SolidBrush(Color.FromArgb(100, 116, 139)))
+                    using (Brush b2 = new SolidBrush(Color.FromArgb(148, 163, 184)))
+                    {
+                        string line1 = "No Document Selected";
+                        string line2 = "Select any file in the queue to preview pages\nand configure its custom print options.";
+                        SizeF s1 = g.MeasureString(line1, f1);
+                        SizeF s2 = g.MeasureString(line2, f2);
+                        g.DrawString(line1, f1, b1, (targetW - s1.Width) / 2, (targetH / 2) - 30);
+                        g.DrawString(line2, f2, b2, (targetW - s2.Width) / 2, (targetH / 2) + 5);
+                    }
+                }
+                _pbPreview.Image = bmp;
+                _lblPreviewMeta.Text = "No file selected";
+                return;
+            }
+
             _pbPreview.Image = DocumentRenderer.RenderPageThumbnail(_selectedItem, _currentPreviewPage, targetW, targetH);
             _lblPreviewMeta.Text = string.Format("Page {0} of {1}", _currentPreviewPage, _selectedItem.TotalPages);
         }
@@ -1258,6 +1421,10 @@ namespace PrintPulse
         {
             if (_selectedItem == null) return;
             _selectedItem.Rotate90();
+            if (_btnRotate != null)
+            {
+                _btnRotate.Text = _selectedItem.RotationDegrees > 0 ? string.Format("⟲ {0}°", _selectedItem.RotationDegrees) : "⟲ Rotate 90°";
+            }
             RenderPreview();
         }
 
@@ -1265,6 +1432,11 @@ namespace PrintPulse
         {
             if (item == null) return;
             _isUpdatingInputs = true;
+
+            if (_btnRotate != null)
+            {
+                _btnRotate.Text = item.RotationDegrees > 0 ? string.Format("⟲ {0}°", item.RotationDegrees) : "⟲ Rotate 90°";
+            }
 
             // Copies
             _numCopies.Value = Math.Max(1, item.Copies);
@@ -1433,8 +1605,10 @@ namespace PrintPulse
                 totalSheets += item.CalculateSheetCount();
             }
 
-            _lblSummaryText.Text = string.Format("Active: {0} Files | {1} Pages | {2} Sheets to Print",
-                totalFiles, totalPages, totalSheets);
+            int savedSheets = totalPages - totalSheets;
+            string ecoTag = savedSheets > 0 ? string.Format(" • 🌱 {0} Sheets Saved (Duplex/N-Up)", savedSheets) : "";
+            _lblSummaryText.Text = string.Format("Active: {0} {1} | {2} Pages | {3} Sheets{4}",
+                totalFiles, totalFiles == 1 ? "File" : "Files", totalPages, totalSheets, ecoTag);
         }
 
         private void StartBatch()
