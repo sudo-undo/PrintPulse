@@ -112,6 +112,7 @@ namespace PrintPulse
         public DateTime? StartedAt { get; set; }
         public DateTime? CompletedAt { get; set; }
         public int ActualPagesPrinted { get; set; }
+        public int InitialIndex { get; set; }
 
         public PrintJobItem(string filePath)
         {

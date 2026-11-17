@@ -342,15 +342,46 @@ namespace PrintPulse
             _pnlSmartAdvisor.Controls.Add(_lblAdvisorText);
             _pnlSmartAdvisor.Controls.Add(_btnAdvisorApply);
 
+            Panel pnlQueueHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 32,
+                BackColor = Color.FromArgb(248, 250, 252),
+                Padding = new Padding(10, 3, 10, 3)
+            };
+
             Label lblQueueHeader = new Label
             {
                 Text = "PRINT QUEUE (DRAG TO REORDER)",
                 Font = new Font("Segoe UI", 8F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(100, 116, 139),
-                Dock = DockStyle.Top,
-                Height = 26,
-                Padding = new Padding(10, 6, 0, 0)
+                Dock = DockStyle.Left,
+                AutoSize = false,
+                Width = 230,
+                TextAlign = ContentAlignment.MiddleLeft
             };
+
+            Button btnSortMenu = CreateModernButton("🔀 Sort Queue ▾", Color.White, Color.FromArgb(51, 65, 85), 0, 0, 120, 26);
+            btnSortMenu.Font = new Font("Segoe UI", 8F, FontStyle.Bold);
+            btnSortMenu.Dock = DockStyle.Right;
+
+            ContextMenuStrip cmsSort = new ContextMenuStrip();
+            cmsSort.Font = new Font("Segoe UI", 9F);
+            cmsSort.Items.Add("🔤 By File Name (A to Z)", null, delegate { SortQueue(SortMode.Name); });
+            cmsSort.Items.Add("🔤 By File Name (Z to A)", null, delegate { SortQueue(SortMode.NameDesc); });
+            cmsSort.Items.Add(new ToolStripSeparator());
+            cmsSort.Items.Add("📄 By Page Count (Smallest First)", null, delegate { SortQueue(SortMode.PageCount); });
+            cmsSort.Items.Add("📄 By Page Count (Largest First)", null, delegate { SortQueue(SortMode.PageCountDesc); });
+            cmsSort.Items.Add(new ToolStripSeparator());
+            cmsSort.Items.Add("🏷️ By File Type (PDF, DOCX, Images)", null, delegate { SortQueue(SortMode.FileType); });
+            cmsSort.Items.Add("💾 By File Size", null, delegate { SortQueue(SortMode.FileSize); });
+            cmsSort.Items.Add(new ToolStripSeparator());
+            cmsSort.Items.Add("🔄 Reset to Original Order", null, delegate { SortQueue(SortMode.OriginalIndex); });
+
+            btnSortMenu.Click += delegate { cmsSort.Show(btnSortMenu, new Point(0, btnSortMenu.Height)); };
+
+            pnlQueueHeader.Controls.Add(btnSortMenu);
+            pnlQueueHeader.Controls.Add(lblQueueHeader);
 
             _lvQueue = new ListView
             {
@@ -373,6 +404,7 @@ namespace PrintPulse
             _lvQueue.Columns.Add("Status", 85);
 
             _lvQueue.SelectedIndexChanged += LvQueue_SelectedIndexChanged;
+            _lvQueue.ColumnClick += LvQueue_ColumnClick;
             _lvQueue.ItemCheck += LvQueue_ItemCheck;
             _lvQueue.ItemDrag += LvQueue_ItemDrag;
             _lvQueue.DragEnter += delegate(object s, DragEventArgs e) { e.Effect = DragDropEffects.Move; };
@@ -381,7 +413,7 @@ namespace PrintPulse
 
             pnlQueue.Controls.Add(_lvQueue);
             pnlQueue.Controls.Add(_pnlSmartAdvisor);
-            pnlQueue.Controls.Add(lblQueueHeader);
+            pnlQueue.Controls.Add(pnlQueueHeader);
             _split.Panel1.Controls.Add(pnlQueue);
 
             // RIGHT PANEL: PREVIEW & ADOBE ACROBAT STYLE SETTINGS
@@ -713,6 +745,104 @@ namespace PrintPulse
             SessionManager.SaveSession(_queue);
         }
 
+        private int _lastSortedColumn = -1;
+        private bool _isAscending = true;
+
+        private void LvQueue_ColumnClick(object sender, ColumnClickEventArgs e)
+        {
+            if (_queue.Count <= 1) return;
+            if (e.Column == 0) return; // Checkbox column
+
+            if (_lastSortedColumn == e.Column)
+            {
+                _isAscending = !_isAscending;
+            }
+            else
+            {
+                _lastSortedColumn = e.Column;
+                _isAscending = true;
+            }
+
+            switch (e.Column)
+            {
+                case 1: // # column
+                    if (_isAscending)
+                        _queue.Sort((a, b) => a.InitialIndex.CompareTo(b.InitialIndex));
+                    else
+                        _queue.Sort((a, b) => b.InitialIndex.CompareTo(a.InitialIndex));
+                    break;
+
+                case 2: // File Name
+                    if (_isAscending)
+                        _queue.Sort((a, b) => string.Compare(a.FileName, b.FileName, StringComparison.OrdinalIgnoreCase));
+                    else
+                        _queue.Sort((a, b) => string.Compare(b.FileName, a.FileName, StringComparison.OrdinalIgnoreCase));
+                    break;
+
+                case 3: // Pages
+                    if (_isAscending)
+                        _queue.Sort((a, b) => a.TotalPages.CompareTo(b.TotalPages));
+                    else
+                        _queue.Sort((a, b) => b.TotalPages.CompareTo(a.TotalPages));
+                    break;
+
+                case 4: // Copies
+                    if (_isAscending)
+                        _queue.Sort((a, b) => a.Copies.CompareTo(b.Copies));
+                    else
+                        _queue.Sort((a, b) => b.Copies.CompareTo(a.Copies));
+                    break;
+
+                case 5: // Color
+                    if (_isAscending)
+                        _queue.Sort((a, b) => a.ColorMode.CompareTo(b.ColorMode));
+                    else
+                        _queue.Sort((a, b) => b.ColorMode.CompareTo(a.ColorMode));
+                    break;
+
+                case 6: // Duplex
+                    if (_isAscending)
+                        _queue.Sort((a, b) => a.DuplexMode.CompareTo(b.DuplexMode));
+                    else
+                        _queue.Sort((a, b) => b.DuplexMode.CompareTo(a.DuplexMode));
+                    break;
+
+                case 7: // Layout
+                    if (_isAscending)
+                        _queue.Sort((a, b) => a.LayoutMode.CompareTo(b.LayoutMode));
+                    else
+                        _queue.Sort((a, b) => b.LayoutMode.CompareTo(a.LayoutMode));
+                    break;
+
+                case 8: // Status
+                    if (_isAscending)
+                        _queue.Sort((a, b) => a.Status.CompareTo(b.Status));
+                    else
+                        _queue.Sort((a, b) => b.Status.CompareTo(a.Status));
+                    break;
+            }
+
+            UpdateColumnHeaderSortIndicators(e.Column, _isAscending);
+            RefreshQueueListView();
+            SessionManager.SaveSession(_queue);
+        }
+
+        private void UpdateColumnHeaderSortIndicators(int activeCol, bool asc)
+        {
+            string[] baseTitles = new string[] { "", "#", "File Name", "Pages", "Copies", "Color", "Duplex", "Layout", "Status" };
+            for (int i = 0; i < _lvQueue.Columns.Count && i < baseTitles.Length; i++)
+            {
+                if (i == activeCol)
+                {
+                    _lvQueue.Columns[i].Text = baseTitles[i] + (asc ? " ▲" : " ▼");
+                }
+                else
+                {
+                    _lvQueue.Columns[i].Text = baseTitles[i];
+                }
+            }
+        }
+
         public void SortQueue(SortMode mode)
         {
             if (_queue.Count <= 1) return;
@@ -720,15 +850,31 @@ namespace PrintPulse
             {
                 case SortMode.Name:
                     _queue.Sort((a, b) => string.Compare(a.FileName, b.FileName, StringComparison.OrdinalIgnoreCase));
+                    UpdateColumnHeaderSortIndicators(2, true);
+                    break;
+                case SortMode.NameDesc:
+                    _queue.Sort((a, b) => string.Compare(b.FileName, a.FileName, StringComparison.OrdinalIgnoreCase));
+                    UpdateColumnHeaderSortIndicators(2, false);
                     break;
                 case SortMode.PageCount:
                     _queue.Sort((a, b) => a.TotalPages.CompareTo(b.TotalPages));
+                    UpdateColumnHeaderSortIndicators(3, true);
+                    break;
+                case SortMode.PageCountDesc:
+                    _queue.Sort((a, b) => b.TotalPages.CompareTo(a.TotalPages));
+                    UpdateColumnHeaderSortIndicators(3, false);
                     break;
                 case SortMode.FileType:
                     _queue.Sort((a, b) => string.Compare(Path.GetExtension(a.FilePath), Path.GetExtension(b.FilePath), StringComparison.OrdinalIgnoreCase));
+                    UpdateColumnHeaderSortIndicators(-1, true);
                     break;
                 case SortMode.FileSize:
                     _queue.Sort((a, b) => a.FileSizeBytes.CompareTo(b.FileSizeBytes));
+                    UpdateColumnHeaderSortIndicators(-1, true);
+                    break;
+                case SortMode.OriginalIndex:
+                    _queue.Sort((a, b) => a.InitialIndex.CompareTo(b.InitialIndex));
+                    UpdateColumnHeaderSortIndicators(1, true);
                     break;
             }
             RefreshQueueListView();
@@ -917,6 +1063,7 @@ namespace PrintPulse
 
             PrintJobItem item = new PrintJobItem(path);
             item.TotalPages = DocumentRenderer.InspectPageCount(item);
+            item.InitialIndex = _queue.Count;
             _queue.Add(item);
 
             if (item.TotalPages >= 50)
@@ -953,6 +1100,18 @@ namespace PrintPulse
                     lvi.ForeColor = Color.FromArgb(225, 29, 72);
 
                 _lvQueue.Items.Add(lvi);
+            }
+
+            if (_selectedItem != null)
+            {
+                for (int i = 0; i < _lvQueue.Items.Count; i++)
+                {
+                    if (_lvQueue.Items[i].Tag == _selectedItem)
+                    {
+                        _lvQueue.Items[i].Selected = true;
+                        break;
+                    }
+                }
             }
 
             _lvQueue.EndUpdate();

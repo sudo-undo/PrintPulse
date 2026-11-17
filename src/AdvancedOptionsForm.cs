@@ -101,7 +101,7 @@ namespace PrintPulse
                 Dock = DockStyle.Fill,
                 Padding = new Padding(15, 10, 15, 15),
                 AutoScroll = true,
-                AutoScrollMinSize = new Size(640, 520),
+                AutoScrollMinSize = new Size(640, 560),
                 BackColor = Color.FromArgb(248, 250, 252)
             };
 
@@ -129,11 +129,11 @@ namespace PrintPulse
             y += 88;
 
             // Group 2: Slip-Sheet & Blank Page
-            GroupBox gbSlip = CreateGroupBox("📄 Document Separation & Paper Saving", 15, y, 650, 80);
-            Label lblSlip = new Label { Text = "Job Separator:", Location = new Point(20, 32), AutoSize = true, Font = new Font("Segoe UI", 9.5f) };
+            GroupBox gbSlip = CreateGroupBox("📄 Document Separation && Paper Saving", 15, y, 650, 105);
+            Label lblSlip = new Label { Text = "Job Separator:", Location = new Point(20, 28), AutoSize = true, Font = new Font("Segoe UI", 9.5f) };
             gbSlip.Controls.Add(lblSlip);
 
-            _cmbSlipSheet = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(125, 29), Size = new Size(220, 26), Font = new Font("Segoe UI", 9.5f) };
+            _cmbSlipSheet = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(130, 25), Size = new Size(260, 26), Font = new Font("Segoe UI", 9.5f) };
             _cmbSlipSheet.Items.Add("None (Print Continuously)");
             _cmbSlipSheet.Items.Add("Blank Sheet Between Files");
             _cmbSlipSheet.Items.Add("Document Summary Slip (Title & Info)");
@@ -148,7 +148,7 @@ namespace PrintPulse
             _chkSkipBlank = new CheckBox
             {
                 Text = "Smart Blank-Page Suppression (skip empty sheets)",
-                Location = new Point(365, 31),
+                Location = new Point(20, 66),
                 AutoSize = true,
                 Font = new Font("Segoe UI", 9.5f),
                 Checked = GlobalSkipBlankPages
@@ -161,7 +161,7 @@ namespace PrintPulse
             };
             gbSlip.Controls.Add(_chkSkipBlank);
             content.Controls.Add(gbSlip);
-            y += 93;
+            y += 118;
 
             // Group 3: Queue Auto-Sorting
             GroupBox gbSort = CreateGroupBox("🔀 Queue Auto-Sorting", 15, y, 650, 75);
@@ -341,8 +341,11 @@ namespace PrintPulse
     public enum SortMode
     {
         Name,
+        NameDesc,
         PageCount,
+        PageCountDesc,
         FileType,
-        FileSize
+        FileSize,
+        OriginalIndex
     }
 }

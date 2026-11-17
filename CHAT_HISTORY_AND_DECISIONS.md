@@ -156,3 +156,9 @@ This document preserves the complete chronological record of user requests, assi
     * Error Recovery Choice tracking (`TrackErrorRecoveryChoice`).
     * High-Volume & Paywall Intent Triggers (`TrackHighVolumeTrigger` for batches >10 files or single docs >50 pages).
   * **Binaries Recompiled & Verified:** Rebuilt with MSBuild (`0 Errors`, `bin/Release/PrintPulse.exe` = 138 KB, `dist/Installer/PrintPulse_Setup_v1.1.exe` = 150 KB).
+
+* **Home Screen Queue Header Sorting & Dialog Text Boundary Fixes (2026-11-17):**
+  * **Direct Column Header Sorting (Windows Explorer Style):** Clicking any table header (`File Name`, `Pages`, `Copies`, `Color`, `Duplex`, `Layout`, `Status`) directly sorts the queue ascending/descending with dynamic arrow indicators (`▲`/`▼`) on the active column. Clicking `#` restores natural queue addition order via `InitialIndex`.
+  * **Queue Header Quick Sort Menu:** Added `[🔀 Sort Queue ▾]` dropdown menu right on top of the queue table with instant 1-click presets: A to Z, Z to A, Page Count (Asc/Desc), File Type, File Size, and Original Order.
+  * **Advanced Options Text Boundary & Mnemonic Fix (`AdvancedOptionsForm.cs`):** Fixed cut-off text on `"Smart Blank-Page Suppression"` by expanding Group 2 to a dedicated two-row layout giving the checkbox full 600+ px horizontal width. Escaped ampersand (`&&`) in title `"Document Separation && Paper Saving"` so the `&` character renders visibly instead of acting as a Windows mnemonic shortcut.
+  * **Recompiled & Tested:** Rebuilt portable executable (144 KB) and standalone installer (157 KB) with 0 errors.
