@@ -14,6 +14,7 @@ namespace PrintPulseInstaller
         private TextBox _txtInstallDir;
         private CheckBox _chkDesktop;
         private CheckBox _chkStartMenu;
+        private CheckBox _chkContextMenu;
         private CheckBox _chkLaunch;
         private Button _btnInstall;
         private ProgressBar _prog;
@@ -27,7 +28,7 @@ namespace PrintPulseInstaller
         private void InitUI()
         {
             this.Text = "PrintPulse Setup Wizard";
-            this.Size = new Size(520, 420);
+            this.Size = new Size(520, 450);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -101,7 +102,7 @@ namespace PrintPulseInstaller
             {
                 Text = " Shortcuts & Preferences ",
                 Location = new Point(25, 160),
-                Size = new Size(455, 110),
+                Size = new Size(455, 135),
                 ForeColor = Color.FromArgb(51, 65, 85)
             };
 
@@ -121,30 +122,39 @@ namespace PrintPulseInstaller
                 Checked = true
             };
 
+            _chkContextMenu = new CheckBox
+            {
+                Text = "Add 'Print with PrintPulse' to right-click context menu",
+                Location = new Point(15, 75),
+                Size = new Size(380, 24),
+                Checked = true
+            };
+
             _chkLaunch = new CheckBox
             {
                 Text = "Launch PrintPulse after installation completes",
-                Location = new Point(15, 75),
+                Location = new Point(15, 100),
                 Size = new Size(320, 24),
                 Checked = true
             };
 
             grp.Controls.Add(_chkDesktop);
             grp.Controls.Add(_chkStartMenu);
+            grp.Controls.Add(_chkContextMenu);
             grp.Controls.Add(_chkLaunch);
 
             // Progress & Status
             _lblStatus = new Label
             {
                 Text = "Click Install to begin setup.",
-                Location = new Point(25, 280),
+                Location = new Point(25, 305),
                 Size = new Size(455, 20),
                 ForeColor = Color.FromArgb(100, 116, 139)
             };
 
             _prog = new ProgressBar
             {
-                Location = new Point(25, 305),
+                Location = new Point(25, 330),
                 Size = new Size(455, 18),
                 Style = ProgressBarStyle.Continuous
             };
@@ -153,7 +163,7 @@ namespace PrintPulseInstaller
             _btnInstall = new Button
             {
                 Text = "Install Now",
-                Location = new Point(275, 335),
+                Location = new Point(275, 360),
                 Size = new Size(110, 32),
                 BackColor = Color.FromArgb(16, 185, 129),
                 ForeColor = Color.White,
@@ -166,7 +176,7 @@ namespace PrintPulseInstaller
             Button btnCancel = new Button
             {
                 Text = "Cancel",
-                Location = new Point(395, 335),
+                Location = new Point(395, 360),
                 Size = new Size(85, 32),
                 BackColor = Color.FromArgb(241, 245, 249),
                 FlatStyle = FlatStyle.Flat
@@ -252,6 +262,11 @@ namespace PrintPulseInstaller
                     CreateShortcut(Path.Combine(startMenu, "PrintPulse.lnk"), targetExe, "PrintPulse Batch Print Studio");
                 }
 
+                if (_chkContextMenu.Checked)
+                {
+                    RegisterShellContextMenu(targetExe);
+                }
+
                 // Register Uninstall entry in Windows Registry
                 RegisterUninstall(targetDir, targetExe);
 
@@ -313,6 +328,38 @@ namespace PrintPulseInstaller
                     shortcut.WorkingDirectory = Path.GetDirectoryName(targetExe);
                     shortcut.Description = description;
                     shortcut.Save();
+                }
+            }
+            catch { }
+        }
+
+        private void RegisterShellContextMenu(string exePath)
+        {
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.CreateSubKey(@"Software\Classes\*\shell\PrintPulse"))
+                {
+                    if (key != null)
+                    {
+                        key.SetValue("", "Print with PrintPulse");
+                        key.SetValue("Icon", "\"" + exePath + "\",0");
+                        using (RegistryKey cmdKey = key.CreateSubKey("command"))
+                        {
+                            if (cmdKey != null) cmdKey.SetValue("", "\"" + exePath + "\" \"%1\"");
+                        }
+                    }
+                }
+                using (RegistryKey key = Registry.CurrentUser.CreateSubKey(@"Software\Classes\Directory\shell\PrintPulse"))
+                {
+                    if (key != null)
+                    {
+                        key.SetValue("", "Batch Print Folder with PrintPulse");
+                        key.SetValue("Icon", "\"" + exePath + "\",0");
+                        using (RegistryKey cmdKey = key.CreateSubKey("command"))
+                        {
+                            if (cmdKey != null) cmdKey.SetValue("", "\"" + exePath + "\" \"%1\"");
+                        }
+                    }
                 }
             }
             catch { }

@@ -67,6 +67,13 @@ namespace PrintPulse
         private RadioButton _rbOrientPortrait;
         private RadioButton _rbOrientLandscape;
 
+        // Watermark & Bates Stamping (PMF)
+        private ComboBox _cbWatermark;
+        private CheckBox _chkBates;
+        private TextBox _txtBatesPrefix;
+        public double CostPerBwSheet = 0.05;
+        public double CostPerColorSheet = 0.20;
+
         // UI Controls - Bottom
         private ProgressBar _progressBar;
         private Label _lblStatusText;
@@ -80,7 +87,7 @@ namespace PrintPulse
         private int _draggedItemIndex = -1;
         private bool _isUpdatingInputs = false;
 
-        public MainForm()
+        public MainForm(string[] initialFiles = null)
         {
             _controller = new BatchPrintController();
             _controller.OnItemStarted += Controller_OnItemStarted;
@@ -106,6 +113,10 @@ namespace PrintPulse
                         _split.SplitterDistance = (int)(this.Width * 0.48);
                     }
                     RestorePreviousSession();
+                    if (initialFiles != null && initialFiles.Length > 0)
+                    {
+                        ProcessInitialArguments(initialFiles);
+                    }
                     TelemetryService.TrackSessionStart();
                     if (UpdateManager.CheckOnStartup)
                     {
@@ -636,7 +647,7 @@ namespace PrintPulse
             Panel pnlSettingsWrapper = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 255,
+                Height = 295,
                 BackColor = Color.FromArgb(250, 252, 255),
                 Padding = new Padding(10, 6, 10, 6),
                 AutoScroll = true
@@ -662,7 +673,7 @@ namespace PrintPulse
                 Dock = DockStyle.Top,
                 ColumnCount = 2,
                 RowCount = 5,
-                Height = 210,
+                Height = 250,
                 BackColor = Color.Transparent
             };
             tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -791,10 +802,30 @@ namespace PrintPulse
             pnlTray.Controls.Add(_cbPaperTray);
             tlp.Controls.Add(pnlTray, 1, 2);
 
+            // Section 6: Watermark & Bates Numbering (Row 3)
+            Panel pnlWm = new Panel { Dock = DockStyle.Fill, Padding = new Padding(2) };
+            Label lblWm = new Label { Text = "Watermark:", Location = new Point(0, 5), AutoSize = true, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) };
+            _cbWatermark = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown, Location = new Point(80, 2), Size = new Size(150, 24), Font = new Font("Segoe UI", 8.5f) };
+            _cbWatermark.Items.AddRange(new object[] { "None", "CONFIDENTIAL", "DRAFT", "COPY", "SAMPLE", "URGENT", "INTERNAL ONLY" });
+            _cbWatermark.SelectedIndex = 0;
+            _cbWatermark.TextChanged += delegate { if (!_isUpdatingInputs) UpdateSelectedSettings(); };
+            pnlWm.Controls.Add(lblWm);
+            pnlWm.Controls.Add(_cbWatermark);
+            tlp.Controls.Add(pnlWm, 0, 3);
+
+            Panel pnlBates = new Panel { Dock = DockStyle.Fill, Padding = new Padding(2) };
+            _chkBates = new CheckBox { Text = "Page Stamp:", Location = new Point(0, 4), AutoSize = true, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) };
+            _txtBatesPrefix = new TextBox { Location = new Point(105, 3), Size = new Size(120, 22), Text = "Page ", Font = new Font("Segoe UI", 8.5f) };
+            _chkBates.CheckedChanged += delegate { if (!_isUpdatingInputs) UpdateSelectedSettings(); };
+            _txtBatesPrefix.TextChanged += delegate { if (!_isUpdatingInputs) UpdateSelectedSettings(); };
+            pnlBates.Controls.Add(_chkBates);
+            pnlBates.Controls.Add(_txtBatesPrefix);
+            tlp.Controls.Add(pnlBates, 1, 3);
+
             container.Controls.Add(tlp);
 
             // Apply All button at bottom of settings
-            Button btnApplyAll = CreateModernButton("Apply Selected Settings to All Queued Files", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 10, 220, 280, 28);
+            Button btnApplyAll = CreateModernButton("Apply Selected Settings to All Queued Files", Color.FromArgb(241, 245, 249), Color.FromArgb(51, 65, 85), 10, 255, 280, 28);
             btnApplyAll.Click += delegate { ApplySettingsToAll(); };
             container.Controls.Add(btnApplyAll);
         }
@@ -1589,6 +1620,11 @@ namespace PrintPulse
                 _cbPaperTray.SelectedIndex = (idx >= 0) ? idx : 0;
             }
 
+            // Watermark & Bates
+            _cbWatermark.Text = string.IsNullOrEmpty(item.WatermarkText) ? "None" : item.WatermarkText;
+            _chkBates.Checked = item.EnableBatesNumbering;
+            _txtBatesPrefix.Text = string.IsNullOrEmpty(item.BatesPrefix) ? "Page " : item.BatesPrefix;
+
             _isUpdatingInputs = false;
         }
 
@@ -1649,6 +1685,11 @@ namespace PrintPulse
             if (_cbPaperTray.SelectedItem != null)
                 _selectedItem.PaperSourceTray = _cbPaperTray.SelectedItem.ToString();
 
+            // Watermark & Bates
+            _selectedItem.WatermarkText = _cbWatermark.Text;
+            _selectedItem.EnableBatesNumbering = _chkBates.Checked;
+            _selectedItem.BatesPrefix = _txtBatesPrefix.Text;
+
             // Auto-update selected row in queue
             if (_lvQueue.SelectedItems.Count > 0)
             {
@@ -1683,6 +1724,9 @@ namespace PrintPulse
                 item.TonerSaver = _selectedItem.TonerSaver;
                 item.Orientation = _selectedItem.Orientation;
                 item.PaperSourceTray = _selectedItem.PaperSourceTray;
+                item.WatermarkText = _selectedItem.WatermarkText;
+                item.EnableBatesNumbering = _selectedItem.EnableBatesNumbering;
+                item.BatesPrefix = _selectedItem.BatesPrefix;
             }
             RefreshQueueListView();
             UpdateSummaryMetrics();
@@ -1695,6 +1739,8 @@ namespace PrintPulse
             int totalFiles = 0;
             int totalPages = 0;
             int totalSheets = 0;
+            int bwSheets = 0;
+            int colorSheets = 0;
 
             foreach (var item in _queue)
             {
@@ -1702,13 +1748,46 @@ namespace PrintPulse
                 totalFiles++;
                 int pages = item.ResolvePageIndices().Count * item.Copies;
                 totalPages += pages;
-                totalSheets += item.CalculateSheetCount();
+                int sheets = item.CalculateSheetCount();
+                totalSheets += sheets;
+                if (item.ColorMode == ColorPrintMode.Color) colorSheets += sheets;
+                else bwSheets += sheets;
             }
 
             int savedSheets = totalPages - totalSheets;
-            string ecoTag = savedSheets > 0 ? string.Format(" • 🌱 {0} Sheets Saved (Duplex/N-Up)", savedSheets) : "";
-            _lblSummaryText.Text = string.Format("Active: {0} {1} | {2} Pages | {3} Sheets{4}",
-                totalFiles, totalFiles == 1 ? "File" : "Files", totalPages, totalSheets, ecoTag);
+            string ecoTag = savedSheets > 0 ? string.Format(" • 🌱 {0} Sheets Saved", savedSheets) : "";
+            double estCost = (bwSheets * CostPerBwSheet) + (colorSheets * CostPerColorSheet);
+
+            _lblSummaryText.Text = string.Format("Active: {0} {1} | {2} Pages | {3} Sheets | Est. Cost: ${4:0.00}{5}",
+                totalFiles, totalFiles == 1 ? "File" : "Files", totalPages, totalSheets, estCost, ecoTag);
+        }
+
+        private void ProcessInitialArguments(string[] args)
+        {
+            if (args == null || args.Length == 0) return;
+            foreach (string arg in args)
+            {
+                if (string.IsNullOrEmpty(arg)) continue;
+                try
+                {
+                    if (Directory.Exists(arg))
+                    {
+                        string[] files = Directory.GetFiles(arg, "*.*", SearchOption.AllDirectories);
+                        AddFilesToQueue(files);
+                    }
+                    else if (File.Exists(arg))
+                    {
+                        AddSingleFile(arg);
+                    }
+                }
+                catch { }
+            }
+            RefreshQueueListView();
+            UpdateSummaryMetrics();
+            if (_queue.Count > 0 && _selectedItem == null)
+            {
+                _lvQueue.Items[0].Selected = true;
+            }
         }
 
         private void StartBatch()

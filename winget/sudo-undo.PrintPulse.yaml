@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.6.0.schema.json
+PackageIdentifier: sudo-undo.PrintPulse
+PackageVersion: 1.2.0
+PackageName: PrintPulse
+Publisher: PrintPulse Technologies
+PublisherUrl: https://github.com/sudo-undo/PrintPulse
+PublisherSupportUrl: https://github.com/sudo-undo/PrintPulse/issues
+Author: sudo-undo
+ShortDescription: Universal, ultra-lightweight (170 KB) batch print studio with real-time spooler monitoring and bates stamping for Windows.
+Description: |
+  PrintPulse is an ultra-lightweight, zero-dependency batch printing studio compatible with Windows XP through Windows 11 (32-bit and 64-bit).
+  Supports PDFs, Word documents (.docx), text files (.txt, .csv), and images (.png, .jpg, .tiff) with built-in preview, legal Bates stamping, watermarks, paper jam recovery, and pre-print cost estimation.
+PackageUrl: https://sudo-undo.github.io/PrintPulse
+License: MIT
+LicenseUrl: https://github.com/sudo-undo/PrintPulse/blob/main/LICENSE
+Copyright: Copyright (c) 2026 PrintPulse Technologies
+Tags:
+  - batch-print
+  - bulk-print
+  - pdf
+  - bates-stamping
+  - watermark
+  - spooler
+  - printing
+  - office
+Installers:
+  - Architecture: x86
+    InstallerType: inno
+    InstallerUrl: https://github.com/sudo-undo/PrintPulse/releases/latest/download/PrintPulse_Setup_v1.1.exe
+  - Architecture: x64
+    InstallerType: inno
+    InstallerUrl: https://github.com/sudo-undo/PrintPulse/releases/latest/download/PrintPulse_Setup_v1.1.exe
+  - Architecture: neutral
+    InstallerType: portable
+    InstallerUrl: https://github.com/sudo-undo/PrintPulse/releases/latest/download/PrintPulse.exe
+ManifestType: singleton
+ManifestVersion: 1.6.0

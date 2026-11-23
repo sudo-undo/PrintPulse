@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PrintPulse — Universal Batch Printing Studio for Windows</title>
+  <meta name="description" content="Ultra-lightweight (170 KB), zero-dependency universal batch printing studio for Windows XP to 11. Print hundreds of PDFs, Word DOCX, and images in one click with live spooler recovery, bates stamping, and cost estimation.">
+  <meta name="keywords" content="batch print pdf, bulk print windows, print conductor alternative, free batch print, print multiple pdfs, bates numbering tool, bates stamping windows, lightweight print studio">
+  <link rel="icon" href="https://img.icons8.com/fluency/96/print.png" type="image/png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+    .glass-card { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(226, 232, 240, 0.8); }
+    .hero-glow { background: radial-gradient(circle at 50% 20%, rgba(79, 70, 229, 0.15) 0%, rgba(248, 250, 252, 0) 65%); }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- Navigation -->
+  <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-200">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+        </div>
+        <span class="text-xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">PrintPulse</span>
+        <span class="text-xs font-semibold px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full">v1.2.0</span>
+      </div>
+      <div class="flex items-center space-x-4">
+        <a href="#features" class="hidden md:inline text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Features</a>
+        <a href="#comparison" class="hidden md:inline text-sm font-medium text-slate-600 hover:text-indigo-600 transition">Comparison</a>
+        <a href="https://github.com/sudo-undo/PrintPulse" target="_blank" class="flex items-center space-x-2 text-sm font-medium text-slate-700 hover:text-slate-900 bg-slate-100 px-3.5 py-1.5 rounded-lg border border-slate-200 transition">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <span>Star on GitHub</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-glow pt-20 pb-24 px-6 text-center">
+    <div class="max-w-4xl mx-auto">
+      <div class="inline-flex items-center space-x-2 px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold rounded-full mb-6">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span>Ultra-Lightweight 170 KB • Zero Dependencies • Windows XP to 11</span>
+      </div>
+      <h1 class="text-4xl sm:text-6xl font-extrabold text-slate-950 tracking-tight leading-tight sm:leading-none mb-6">
+        Universal Batch Printing Studio. <br>
+        <span class="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">No Adobe. No Bloat. No Hassle.</span>
+      </h1>
+      <p class="text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto mb-10 leading-relaxed">
+        Queue, reorder, preview, and spool hundreds of PDFs, Word documents, text files, and images in seconds. Built-in paper jam recovery, bates stamping, and live cost calculation.
+      </p>
+
+      <!-- CTA Buttons -->
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+        <a href="https://github.com/sudo-undo/PrintPulse/releases/latest/download/PrintPulse.exe" class="w-full sm:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span>Download Portable (170 KB)</span>
+        </a>
+        <a href="https://github.com/sudo-undo/PrintPulse/releases/latest/download/PrintPulse_Setup_v1.1.exe" class="w-full sm:w-auto px-8 py-4 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-semibold rounded-xl shadow-sm transition transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
+          <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+          <span>Setup Installer (.exe)</span>
+        </a>
+      </div>
+
+      <!-- Quick Winget install command -->
+      <div class="inline-flex items-center bg-slate-900 text-slate-200 text-xs sm:text-sm px-4 py-2 rounded-lg border border-slate-800 space-x-3 shadow-inner">
+        <span class="text-indigo-400 font-bold">$</span>
+        <code>winget install sudo-undo.PrintPulse</code>
+        <button onclick="navigator.clipboard.writeText('winget install sudo-undo.PrintPulse'); this.innerText='Copied!';" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded transition">Copy</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Competitor Comparison Table -->
+  <section id="comparison" class="py-16 bg-white border-y border-slate-200 px-6">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center max-w-2xl mx-auto mb-12">
+        <h2 class="text-3xl font-bold text-slate-900 mb-3">Why Professionals Choose PrintPulse</h2>
+        <p class="text-slate-600">See how PrintPulse compares directly against commercial competitors.</p>
+      </div>
+
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm font-semibold">
+              <th class="p-4">Capability</th>
+              <th class="p-4 bg-indigo-50/60 text-indigo-900 font-bold">PrintPulse (Free)</th>
+              <th class="p-4">Print Conductor</th>
+              <th class="p-4">Adobe Acrobat Pro</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 text-sm">
+            <tr>
+              <td class="p-4 font-medium text-slate-900">Application Footprint</td>
+              <td class="p-4 bg-indigo-50/40 text-emerald-600 font-bold">170 KB (Instant)</td>
+              <td class="p-4 text-rose-500 font-semibold">~150 MB (Heavy)</td>
+              <td class="p-4 text-rose-500 font-semibold">~1,200 MB (Bloat)</td>
+            </tr>
+            <tr>
+              <td class="p-4 font-medium text-slate-900">License / Pricing</td>
+              <td class="p-4 bg-indigo-50/40 text-emerald-600 font-bold">100% Free & Open Source</td>
+              <td class="p-4 text-slate-700">$149 - $299 / license</td>
+              <td class="p-4 text-slate-700">$239.88 / year</td>
+            </tr>
+            <tr>
+              <td class="p-4 font-medium text-slate-900">Third-Party Runtime Needed</td>
+              <td class="p-4 bg-indigo-50/40 text-emerald-600 font-bold">None (Zero Dependencies)</td>
+              <td class="p-4 text-slate-700">Requires MS Office / Acrobat</td>
+              <td class="p-4 text-slate-700">Requires Adobe Cloud engine</td>
+            </tr>
+            <tr>
+              <td class="p-4 font-medium text-slate-900">Paper Jam & Error Interception</td>
+              <td class="p-4 bg-indigo-50/40 text-indigo-700 font-bold">Interactive Page-Accurate Reprint</td>
+              <td class="p-4 text-slate-600">Requeues whole document</td>
+              <td class="p-4 text-slate-600">Manual cancel / restart</td>
+            </tr>
+            <tr>
+              <td class="p-4 font-medium text-slate-900">Bates Stamping & Watermarking</td>
+              <td class="p-4 bg-indigo-50/40 text-emerald-600 font-bold">Included Free</td>
+              <td class="p-4 text-slate-700">Included ($149)</td>
+              <td class="p-4 text-slate-700">Included ($239/yr)</td>
+            </tr>
+            <tr>
+              <td class="p-4 font-medium text-slate-900">Windows Explorer Right-Click</td>
+              <td class="p-4 bg-indigo-50/40 text-emerald-600 font-bold">Native Integration</td>
+              <td class="p-4 text-emerald-600 font-semibold">Yes</td>
+              <td class="p-4 text-emerald-600 font-semibold">Yes</td>
+            </tr>
+            <tr>
+              <td class="p-4 font-medium text-slate-900">Windows OS Range</td>
+              <td class="p-4 bg-indigo-50/40 text-indigo-700 font-bold">Windows XP SP3 to Windows 11</td>
+              <td class="p-4 text-slate-600">Windows 7+</td>
+              <td class="p-4 text-slate-600">Windows 10+</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Key Features Grid -->
+  <section id="features" class="py-20 px-6 max-w-6xl mx-auto">
+    <div class="text-center max-w-2xl mx-auto mb-16">
+      <h2 class="text-3xl font-bold text-slate-900 mb-3">Enterprise Grade Features in 170 KB</h2>
+      <p class="text-slate-600">Built from scratch with zero bloat to solve everyday document printing headaches.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <!-- Card 1 -->
+      <div class="glass-card p-6 rounded-2xl shadow-sm hover:shadow-md transition">
+        <div class="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Bates Stamping & Watermarks</h3>
+        <p class="text-sm text-slate-600 leading-relaxed">Legal and corporate-grade sequential page numbering (<code class="bg-slate-100 px-1 py-0.5 rounded">CASE-001 - Page 1 of 50</code>) and diagonal watermarks (<code class="bg-slate-100 px-1 py-0.5 rounded">CONFIDENTIAL</code>, <code class="bg-slate-100 px-1 py-0.5 rounded">DRAFT</code>).</p>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="glass-card p-6 rounded-2xl shadow-sm hover:shadow-md transition">
+        <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Live Pre-Print Cost Estimation</h3>
+        <p class="text-sm text-slate-600 leading-relaxed">Know total job cost before releasing 500 sheets. Calculates paper & toner cost dynamically based on B&W vs. Color count and duplex savings.</p>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="glass-card p-6 rounded-2xl shadow-sm hover:shadow-md transition">
+        <div class="w-12 h-12 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/></svg>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Windows Explorer Context Menu</h3>
+        <p class="text-sm text-slate-600 leading-relaxed">Select 50 files in File Explorer, right-click, and select <span class="font-semibold text-slate-800">"Print with PrintPulse"</span> to instantly queue and spool without manual opening.</p>
+      </div>
+
+      <!-- Card 4 -->
+      <div class="glass-card p-6 rounded-2xl shadow-sm hover:shadow-md transition">
+        <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Paper Jam & Spooler Interception</h3>
+        <p class="text-sm text-slate-600 leading-relaxed">Direct Win32 spooler hardware monitoring freezes the queue automatically when paper runs out or jams, offering 1-click page-level reprint.</p>
+      </div>
+
+      <!-- Card 5 -->
+      <div class="glass-card p-6 rounded-2xl shadow-sm hover:shadow-md transition">
+        <div class="w-12 h-12 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Booklet & N-Up Imposition</h3>
+        <p class="text-sm text-slate-600 leading-relaxed">Automatic 2-Up, 4-Up, and Saddle-Stitch Booklet folding with cut-and-fold guidelines. Save up to 75% on office paper.</p>
+      </div>
+
+      <!-- Card 6 -->
+      <div class="glass-card p-6 rounded-2xl shadow-sm hover:shadow-md transition">
+        <div class="w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Automated Drop Watch Folders</h3>
+        <p class="text-sm text-slate-600 leading-relaxed">Designate any desktop or network folder as a hot drop-folder. Any document placed in the folder is automatically ingested and spooled.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-slate-900 text-slate-400 py-12 px-6 border-t border-slate-800">
+    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-sm">P</div>
+        <span class="text-white font-bold text-lg">PrintPulse</span>
+        <span class="text-xs text-slate-500">© 2026 PrintPulse Technologies. MIT License.</span>
+      </div>
+      <div class="flex items-center space-x-6 text-sm">
+        <a href="https://github.com/sudo-undo/PrintPulse" class="hover:text-white transition">GitHub</a>
+        <a href="https://github.com/sudo-undo/PrintPulse/releases" class="hover:text-white transition">Releases</a>
+        <a href="https://github.com/sudo-undo/PrintPulse/issues" class="hover:text-white transition">Support & Bug Reports</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

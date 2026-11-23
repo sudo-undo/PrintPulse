@@ -10,7 +10,7 @@ namespace PrintPulse
         private static extern bool SetProcessDPIAware();
 
         [STAThread]
-        static void Main()
+        static void Main(string[] args)
         {
             try
             {
@@ -38,7 +38,7 @@ namespace PrintPulse
 
             try
             {
-                Application.Run(new MainForm());
+                Application.Run(new MainForm(args));
             }
             catch (Exception ex)
             {

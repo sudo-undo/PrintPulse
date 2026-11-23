@@ -195,3 +195,23 @@ This document preserves the complete chronological record of user requests, assi
     * **Installer Mode:** Automatically downloads the latest `PrintPulse_Setup_vX.X.exe` and launches the setup wizard while cleanly exiting the current instance.
   * **Advanced Options Modal Integration (`AdvancedOptionsForm.cs`):** Added Group 6: `"🔄 Software Updates"` with a manual `[Check for Updates Now]` button and a toggle for `[✓] Check for updates automatically on startup` (persisted to `%LOCALAPPDATA%\PrintPulse\update_settings.cfg`).
   * **Binaries Rebuilt & Verified:** MSBuild release rebuild passed with 0 errors (portable executable: 154 KB, setup installer: 168 KB).
+
+
+* **PrintPulse v1.2.0 Commercial PMF & Distribution Release (2026-11-24):**
+  * **Windows Explorer Context Menu & CLI Ingestion (`ShellIntegration.cs` & `MainForm.cs`):**
+    * Added full Windows Explorer shell right-click integration (`HKCU\Software\Classes\*\shell\PrintPulse` and `Directory\shell\PrintPulse`) allowing users to right-click files or folders and click *"Print with PrintPulse"*.
+    * Added command-line ingestion: `PrintPulse.exe "doc1.pdf" "folder1"` automatically loads and parses arguments on launch.
+    * Added context menu option in both `SetupInstaller.cs` and `AdvancedOptionsForm.cs` (Group 7: `"⚙️ Windows Integration & Cost Estimation"`).
+  * **Legal & Corporate Bates Stamping & Watermarking Engine (`DocumentRenderer.cs` & `PrintJobItem.cs`):**
+    * Implemented sequential Bates page numbering (`CASE-001 - Page 1 of 50 • 2026-11-24`) with custom prefix, custom starting index, and live timestamp.
+    * Added semi-transparent diagonal watermarking presets (`CONFIDENTIAL`, `DRAFT`, `COPY`, `SAMPLE`, `URGENT`, `INTERNAL ONLY`, or custom text) rendered at -35° angle.
+    * Both Bates and Watermarks render in real-time in the document preview window and onto final physical/spooled pages.
+  * **Live Pre-Print Cost & Savings Estimator (`MainForm.cs` & `AdvancedOptionsForm.cs`):**
+    * Configurable per-sheet unit pricing (default: $0.05 B&W, $0.20 Color).
+    * Dynamic real-time readout on the bottom summary bar: *"Active: 12 Files | 48 Pages | 24 Sheets | Est. Cost: $1.80 • 🌱 24 Sheets Saved (Duplex)"*.
+  * **Official Web Landing Page (`docs/index.html`):**
+    * Created high-converting responsive landing page designed for GitHub Pages (`https://sudo-undo.github.io/PrintPulse`).
+    * Includes comparison table (PrintPulse vs Print Conductor vs Adobe Acrobat), feature highlights, terminal winget snippet, and direct 1-click download buttons.
+  * **Windows Package Manager Manifest (`winget/sudo-undo.PrintPulse.yaml`):**
+    * Created official winget v1.6.0 singleton manifest ready for submission to `microsoft/winget-pkgs`.
+  * **Recompiled & Verified:** Rebuilt with MSBuild (`0 Errors`, portable executable: 172 KB, setup installer: 186 KB), verified running cleanly.

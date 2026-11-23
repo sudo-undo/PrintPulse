@@ -53,6 +53,7 @@
     <Compile Include="WatchFolderService.cs" />
     <Compile Include="AdvancedOptionsForm.cs" />
     <Compile Include="UpdateManager.cs" />
+    <Compile Include="ShellIntegration.cs" />
     <Compile Include="MainForm.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>

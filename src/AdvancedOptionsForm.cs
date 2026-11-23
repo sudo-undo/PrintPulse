@@ -101,7 +101,7 @@ namespace PrintPulse
                 Dock = DockStyle.Fill,
                 Padding = new Padding(15, 10, 15, 15),
                 AutoScroll = true,
-                AutoScrollMinSize = new Size(640, 640),
+                AutoScrollMinSize = new Size(640, 760),
                 BackColor = Color.FromArgb(248, 250, 252)
             };
 
@@ -282,6 +282,47 @@ namespace PrintPulse
             };
             gbUpdates.Controls.Add(btnCheckUpdate);
             content.Controls.Add(gbUpdates);
+            y += 88;
+
+            // Group 7: Windows Integration & Cost Estimation (PMF)
+            GroupBox gbSystem = CreateGroupBox("⚙️ Windows Integration & Cost Estimation", 15, y, 650, 105);
+
+            CheckBox chkShell = new CheckBox
+            {
+                Text = "Add 'Print with PrintPulse' to Windows Explorer right-click context menu",
+                Location = new Point(20, 26),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9.5f),
+                Checked = ShellIntegration.IsContextMenuRegistered()
+            };
+            chkShell.CheckedChanged += delegate
+            {
+                if (chkShell.Checked)
+                {
+                    if (ShellIntegration.RegisterContextMenu())
+                        MessageBox.Show("Right-click context menu registered successfully!", "PrintPulse", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    ShellIntegration.UnregisterContextMenu();
+                }
+            };
+            gbSystem.Controls.Add(chkShell);
+
+            Label lblCostBw = new Label { Text = "B&W Rate ($/sheet):", Location = new Point(20, 65), AutoSize = true, Font = new Font("Segoe UI", 9f) };
+            NumericUpDown numCostBw = new NumericUpDown { Location = new Point(155, 62), Size = new Size(65, 24), DecimalPlaces = 2, Increment = 0.01M, Minimum = 0, Maximum = 10, Value = (decimal)(_mainForm != null ? _mainForm.CostPerBwSheet : 0.05) };
+            numCostBw.ValueChanged += delegate { if (_mainForm != null) { _mainForm.CostPerBwSheet = (double)numCostBw.Value; } };
+
+            Label lblCostColor = new Label { Text = "Color Rate ($/sheet):", Location = new Point(260, 65), AutoSize = true, Font = new Font("Segoe UI", 9f) };
+            NumericUpDown numCostColor = new NumericUpDown { Location = new Point(390, 62), Size = new Size(65, 24), DecimalPlaces = 2, Increment = 0.01M, Minimum = 0, Maximum = 10, Value = (decimal)(_mainForm != null ? _mainForm.CostPerColorSheet : 0.20) };
+            numCostColor.ValueChanged += delegate { if (_mainForm != null) { _mainForm.CostPerColorSheet = (double)numCostColor.Value; } };
+
+            gbSystem.Controls.Add(lblCostBw);
+            gbSystem.Controls.Add(numCostBw);
+            gbSystem.Controls.Add(lblCostColor);
+            gbSystem.Controls.Add(numCostColor);
+
+            content.Controls.Add(gbSystem);
 
             // Add in order so Docking works without overlapping:
             this.Controls.Add(content);

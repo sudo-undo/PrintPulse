@@ -155,6 +155,9 @@ namespace PrintPulse
                     {
                         DrawDocumentTextPreview(g, item, pageNumber, w, h);
                     }
+
+                    // Apply Legal / Corporate Watermark & Bates Stamping overlays
+                    ApplyWatermarkAndBates(g, new Rectangle(0, 0, w, h), item, pageNumber);
                 }
                 catch (Exception ex)
                 {
@@ -975,6 +978,49 @@ namespace PrintPulse
         public static Bitmap ApplyRotatedAndFiltered(Image source, int rotationDegrees, bool grayscale)
         {
             return ApplyRotatedAndFiltered(source, rotationDegrees, grayscale, false);
+        }
+
+        public static void ApplyWatermarkAndBates(Graphics g, Rectangle bounds, PrintJobItem item, int pageNumber)
+        {
+            if (item == null || g == null) return;
+
+            // 1. Bates / Page Numbering Stamp
+            if (item.EnableBatesNumbering)
+            {
+                string prefix = string.IsNullOrEmpty(item.BatesPrefix) ? "Page " : item.BatesPrefix;
+                int currentBatesNum = item.BatesStartNumber + (pageNumber - 1);
+                string stampText = string.Format("{0}{1} of {2} • {3:yyyy-MM-dd}", prefix, currentBatesNum, item.TotalPages, DateTime.Now);
+
+                using (Font stampFont = new Font("Segoe UI", 9F, FontStyle.Bold))
+                using (Brush stampBrush = new SolidBrush(Color.FromArgb(190, 30, 41, 59)))
+                {
+                    SizeF size = g.MeasureString(stampText, stampFont);
+                    float x = bounds.Right - size.Width - 25;
+                    float y = bounds.Bottom - size.Height - 20;
+                    g.DrawString(stampText, stampFont, stampBrush, x, y);
+                }
+            }
+
+            // 2. Diagonal Watermark Overlay
+            if (!string.IsNullOrEmpty(item.WatermarkText) && !string.Equals(item.WatermarkText, "None", StringComparison.OrdinalIgnoreCase))
+            {
+                string wm = item.WatermarkText.ToUpperInvariant().Trim();
+                if (!string.IsNullOrEmpty(wm))
+                {
+                    GraphicsState state = g.Save();
+                    g.TranslateTransform(bounds.Left + bounds.Width / 2f, bounds.Top + bounds.Height / 2f);
+                    g.RotateTransform(-35f);
+
+                    int fontSize = Math.Max(16, bounds.Width / 12);
+                    using (Font wmFont = new Font("Segoe UI", fontSize, FontStyle.Bold))
+                    using (Brush wmBrush = new SolidBrush(Color.FromArgb(38, 220, 38, 38))) // ~15% opacity red/grey
+                    using (StringFormat sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+                    {
+                        g.DrawString(wm, wmFont, wmBrush, 0, 0, sf);
+                    }
+                    g.Restore(state);
+                }
+            }
         }
     }
 }

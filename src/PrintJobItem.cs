@@ -104,6 +104,12 @@ namespace PrintPulse
         public bool SkipBlankPages { get; set; }
         public bool TonerSaver { get; set; }
 
+        // Watermark & Bates Stamping (Legal / Corporate PMF)
+        public string WatermarkText { get; set; }
+        public bool EnableBatesNumbering { get; set; }
+        public string BatesPrefix { get; set; }
+        public int BatesStartNumber { get; set; }
+
         // Live execution status
         public PrintItemStatus Status { get; set; }
         public int CurrentPageProcessing { get; set; }
@@ -143,6 +149,10 @@ namespace PrintPulse
             PaperSourceTray = "Auto";
             SkipBlankPages = false;
             TonerSaver = false;
+            WatermarkText = "";
+            EnableBatesNumbering = false;
+            BatesPrefix = "Page ";
+            BatesStartNumber = 1;
 
             if (File.Exists(filePath))
             {
